@@ -1,5 +1,4 @@
 // lib/config/theme.dart
-// 테마 설정을 위한 클래스를 생성합니다.
 
 import 'package:flutter/material.dart';
 

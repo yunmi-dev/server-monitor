@@ -1,39 +1,23 @@
 // lib/features/dashboard/widgets/resource_overview_card.dart
 
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import '../models/dashboard_stats.dart';
+import '../../../shared/models/server_metrics.dart';
 
 class ResourceOverviewCard extends StatelessWidget {
-  const ResourceOverviewCard({Key? key}) : super(key: key);
+  final Map<String, ServerMetrics> metrics;
+  final DashboardStats stats;
 
-  Widget leftTitleWidgets(double value, TitleMeta meta) {
-    return Text(
-      '${value.toInt()}%',
-      style: TextStyle(
-        color: Colors.grey[400],
-        fontSize: 12,
-      ),
-    );
-  }
-
-  Widget bottomTitleWidgets(double value, TitleMeta meta) {
-    const times = ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
-    if (value.toInt() < times.length) {
-      return Text(
-        times[value.toInt()],
-        style: TextStyle(
-          color: Colors.grey[400],
-          fontSize: 12,
-        ),
-      );
-    }
-    return const Text('');
-  }
+  const ResourceOverviewCard({
+    Key? key,
+    required this.metrics,
+    required this.stats,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.grey[900],
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -50,26 +34,82 @@ class ResourceOverviewCard extends StatelessWidget {
               height: 200,
               child: LineChart(
                 LineChartData(
-                  gridData: FlGridData(show: true),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: true,
+                    horizontalInterval: 20,
+                    verticalInterval: 1,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey[800],
+                        strokeWidth: 1,
+                      );
+                    },
+                    getDrawingVerticalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey[800],
+                        strokeWidth: 1,
+                      );
+                    },
+                  ),
                   titlesData: FlTitlesData(
+                    show: true,
                     rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: leftTitleWidgets,
-                      ),
+                      sideTitles: SideTitles(showTitles: false),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        getTitlesWidget: bottomTitleWidgets,
+                        reservedSize: 30,
+                        interval: 1,
+                        getTitlesWidget: (value, meta) {
+                          const times = [
+                            '12:00',
+                            '13:00',
+                            '14:00',
+                            '15:00',
+                            '16:00',
+                            '17:00'
+                          ];
+                          final index = value.toInt();
+                          if (index >= 0 && index < times.length) {
+                            return Text(
+                              times[index],
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 12,
+                              ),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: 20,
+                        reservedSize: 40,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${value.toInt()}%',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
                   borderData: FlBorderData(show: false),
+                  minX: 0,
+                  maxX: 5,
+                  minY: 0,
+                  maxY: 100,
                   lineBarsData: [
                     // CPU Line
                     LineChartBarData(
@@ -84,7 +124,7 @@ class ResourceOverviewCard extends StatelessWidget {
                       isCurved: true,
                       color: Theme.of(context).primaryColor,
                       barWidth: 2,
-                      dotData: FlDotData(show: false),
+                      dotData: const FlDotData(show: false),
                     ),
                     // Memory Line
                     LineChartBarData(
@@ -99,7 +139,7 @@ class ResourceOverviewCard extends StatelessWidget {
                       isCurved: true,
                       color: Colors.blue,
                       barWidth: 2,
-                      dotData: FlDotData(show: false),
+                      dotData: const FlDotData(show: false),
                     ),
                     // Network Line
                     LineChartBarData(
@@ -114,7 +154,7 @@ class ResourceOverviewCard extends StatelessWidget {
                       isCurved: true,
                       color: Colors.green,
                       barWidth: 2,
-                      dotData: FlDotData(show: false),
+                      dotData: const FlDotData(show: false),
                     ),
                   ],
                 ),

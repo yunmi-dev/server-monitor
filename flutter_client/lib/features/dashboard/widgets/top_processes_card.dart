@@ -1,14 +1,23 @@
 // lib/features/dashboard/widgets/top_processes_card.dart
 
 import 'package:flutter/material.dart';
+import '../../../shared/models/process_info.dart';
 
 class TopProcessesCard extends StatelessWidget {
-  const TopProcessesCard({Key? key}) : super(key: key);
+  final List<ProcessInfo> processes;
+
+  const TopProcessesCard({
+    Key? key,
+    required this.processes,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Sort processes by CPU usage
+    final sortedProcesses = [...processes]
+      ..sort((a, b) => b.cpu.compareTo(a.cpu));
+
     return Card(
-      color: Colors.grey[900],
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -37,15 +46,13 @@ class TopProcessesCard extends StatelessWidget {
                     _buildTableHeader('NETWORK'),
                   ],
                 ),
-                ...List.generate(
-                  4,
-                  (index) => _buildTableRow(
-                    process: ['nginx', 'mongodb', 'node', 'redis'][index],
-                    cpu: [2.5, 4.2, 1.8, 1.2][index],
-                    ram: [1.8, 3.1, 2.2, 0.8][index],
-                    network: ['150MB/s', '80MB/s', '45MB/s', '20MB/s'][index],
-                  ),
-                ),
+                ...sortedProcesses.take(4).map((process) => _buildTableRow(
+                      process: process.name,
+                      cpu: process.cpu,
+                      ram: process.memory,
+                      network: process.network,
+                      pid: process.pid,
+                    )),
               ],
             ),
           ],
@@ -73,11 +80,12 @@ class TopProcessesCard extends StatelessWidget {
     required double cpu,
     required double ram,
     required String network,
+    required int pid,
   }) {
     return TableRow(
       children: [
         _buildTableCell(
-          process,
+          '$process (PID: $pid)',
           color: Colors.white,
           fontWeight: FontWeight.w500,
         ),

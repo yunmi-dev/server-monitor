@@ -1,22 +1,27 @@
 // lib/features/dashboard/widgets/distribution_card.dart
 
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import '../../../shared/models/server_metrics.dart';
 
 class DistributionCard extends StatelessWidget {
-  const DistributionCard({Key? key}) : super(key: key);
+  final Map<String, ServerMetrics> metrics;
+
+  const DistributionCard({
+    Key? key,
+    required this.metrics,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.grey[900],
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Distribution',
+              'Resource Distribution',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -29,18 +34,25 @@ class DistributionCard extends StatelessWidget {
                   alignment: BarChartAlignment.spaceAround,
                   maxY: 100,
                   barTouchData: BarTouchData(enabled: false),
-                  titlesData: const FlTitlesData(
-                    show: true,
-                    rightTitles: AxisTitles(
+                  titlesData: FlTitlesData(
+                    rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
-                    topTitles: AxisTitles(
+                    topTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        reservedSize: 30,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            'Server ${value.toInt() + 1}',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
                       ),
                     ),
                     leftTitles: AxisTitles(
@@ -48,21 +60,21 @@ class DistributionCard extends StatelessWidget {
                         showTitles: true,
                         reservedSize: 40,
                         interval: 20,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${value.toInt()}%',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
                   borderData: FlBorderData(show: false),
                   gridData: const FlGridData(show: false),
-                  barGroups: [
-                    _generateBarGroup(0, [30, 20, 15], context),
-                    _generateBarGroup(1, [45, 35, 25], context),
-                    _generateBarGroup(2, [35, 25, 20], context),
-                    _generateBarGroup(3, [55, 45, 35], context),
-                    _generateBarGroup(4, [40, 30, 25], context),
-                    _generateBarGroup(5, [45, 35, 30], context),
-                    _generateBarGroup(6, [50, 40, 35], context),
-                    _generateBarGroup(7, [45, 35, 30], context),
-                  ],
+                  barGroups: _createBarGroups(context),
                 ),
               ),
             ),
@@ -74,7 +86,7 @@ class DistributionCard extends StatelessWidget {
                 const SizedBox(width: 24),
                 _buildLegendItem('RAM', Colors.blue),
                 const SizedBox(width: 24),
-                _buildLegendItem('SSD', Colors.green),
+                _buildLegendItem('Disk', Colors.green),
               ],
             ),
           ],
@@ -83,32 +95,37 @@ class DistributionCard extends StatelessWidget {
     );
   }
 
-  BarChartGroupData _generateBarGroup(
-    int x,
-    List<double> values,
-    BuildContext context,
-  ) {
-    return BarChartGroupData(
-      x: x,
-      barRods: [
-        BarChartRodData(
-          toY: values[0],
-          color: Theme.of(context).primaryColor,
-          width: 8,
+  List<BarChartGroupData> _createBarGroups(BuildContext context) {
+    final List<BarChartGroupData> groups = [];
+    var index = 0;
+
+    for (var metric in metrics.values) {
+      groups.add(
+        BarChartGroupData(
+          x: index,
+          barRods: [
+            BarChartRodData(
+              toY: metric.cpu,
+              color: Theme.of(context).primaryColor,
+              width: 8,
+            ),
+            BarChartRodData(
+              toY: metric.memory,
+              color: Colors.blue,
+              width: 8,
+            ),
+            BarChartRodData(
+              toY: metric.disk,
+              color: Colors.green,
+              width: 8,
+            ),
+          ],
         ),
-        BarChartRodData(
-          toY: values[1],
-          color: Colors.blue,
-          width: 8,
-        ),
-        BarChartRodData(
-          toY: values[2],
-          color: Colors.green,
-          width: 8,
-        ),
-      ],
-      showingTooltipIndicators: [],
-    );
+      );
+      index++;
+    }
+
+    return groups;
   }
 
   Widget _buildLegendItem(String label, Color color) {
