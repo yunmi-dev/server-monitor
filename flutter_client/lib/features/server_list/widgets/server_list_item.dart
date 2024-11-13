@@ -16,9 +16,9 @@ class ServerListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.grey[900],
       child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -44,17 +44,11 @@ class ServerListItem extends StatelessWidget {
                       ),
                     ],
                   ),
-                  Text(
-                    server.type,
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 14,
-                    ),
-                  ),
+                  _buildStatusBadge(context),
                 ],
               ),
               const SizedBox(height: 16),
-              _buildMetricsRow(context),
+              _buildMetricsRow(),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -66,12 +60,22 @@ class ServerListItem extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
-                  Text(
-                    server.location,
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 14,
-                    ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        server.location,
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -82,27 +86,70 @@ class ServerListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildMetricsRow(BuildContext context) {
+  Widget _buildStatusBadge(BuildContext context) {
+    Color backgroundColor;
+    String text;
+
+    if (!server.isOnline) {
+      backgroundColor = Colors.red;
+      text = 'Offline';
+    } else if (server.metrics.cpu > 90 ||
+        server.metrics.memory > 90 ||
+        server.metrics.disk > 90) {
+      backgroundColor = Colors.red;
+      text = 'Critical';
+    } else if (server.metrics.cpu > 80 ||
+        server.metrics.memory > 80 ||
+        server.metrics.disk > 80) {
+      backgroundColor = Colors.orange;
+      text = 'Warning';
+    } else {
+      backgroundColor = Colors.green;
+      text = server.type;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor.withOpacity(0.2),
+        border: Border.all(color: backgroundColor),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: backgroundColor,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricsRow() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _buildMetric(
           label: 'CPU',
           value: server.metrics.cpu,
-          color: Theme.of(context).primaryColor,
-        ),
-        _buildMetric(
-          label: 'RAM',
-          value: server.metrics.memory,
           color: Colors.blue,
         ),
         _buildMetric(
-          label: 'DISK',
+          label: 'Memory',
+          value: server.metrics.memory,
+          color: Colors.purple,
+        ),
+        _buildMetric(
+          label: 'Disk',
           value: server.metrics.disk,
           color: Colors.green,
         ),
         _buildMetric(
-          label: 'NET',
+          label: 'Network',
           value: server.metrics.network,
           color: Colors.orange,
         ),
@@ -119,8 +166,8 @@ class ServerListItem extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: Colors.grey[400],
+          style: const TextStyle(
+            color: Colors.grey,
             fontSize: 12,
           ),
         ),
@@ -129,7 +176,7 @@ class ServerListItem extends StatelessWidget {
           '${value.toStringAsFixed(1)}%',
           style: TextStyle(
             color: color,
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),

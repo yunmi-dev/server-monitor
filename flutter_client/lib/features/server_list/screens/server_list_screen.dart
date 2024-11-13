@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../server_list_provider.dart';
+import '../widgets/server_list_item.dart';
+import '../widgets/server_filters.dart';
 import '../../../shared/models/server.dart';
 
 class ServerListScreen extends StatefulWidget {
@@ -13,12 +15,18 @@ class ServerListScreen extends StatefulWidget {
 }
 
 class _ServerListScreenState extends State<ServerListScreen> {
+  final _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(
-      () => context.read<ServerListProvider>().fetchServers(),
-    );
+    Future.microtask(() => context.read<ServerListProvider>().initialize());
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -26,14 +34,20 @@ class _ServerListScreenState extends State<ServerListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Server List',
+          'Servers',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () {
-              // TODO: Implement add server
+              _showAddServerDialog(context);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () {
+              _showFilterSheet(context);
             },
           ),
         ],
@@ -43,12 +57,17 @@ class _ServerListScreenState extends State<ServerListScreen> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
-              onChanged: (value) {
-                context.read<ServerListProvider>().setSearchQuery(value);
-              },
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search servers...',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    context.read<ServerListProvider>().setSearchQuery('');
+                  },
+                ),
                 filled: true,
                 fillColor: Colors.grey[900],
                 border: OutlineInputBorder(
@@ -56,7 +75,15 @@ class _ServerListScreenState extends State<ServerListScreen> {
                   borderSide: BorderSide.none,
                 ),
               ),
+              onChanged: (value) {
+                context.read<ServerListProvider>().setSearchQuery(value);
+              },
             ),
+          ),
+          ServerFilters(
+            onFilterChanged: (filters) {
+              context.read<ServerListProvider>().updateFilters(filters);
+            },
           ),
           Expanded(
             child: Consumer<ServerListProvider>(
@@ -73,10 +100,11 @@ class _ServerListScreenState extends State<ServerListScreen> {
                         Text(
                           provider.error!,
                           style: const TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: provider.fetchServers,
+                          onPressed: () => provider.initialize(),
                           child: const Text('Retry'),
                         ),
                       ],
@@ -84,7 +112,8 @@ class _ServerListScreenState extends State<ServerListScreen> {
                   );
                 }
 
-                if (provider.servers.isEmpty) {
+                final servers = provider.filteredServers;
+                if (servers.isEmpty) {
                   return const Center(
                     child: Text(
                       'No servers found',
@@ -93,13 +122,22 @@ class _ServerListScreenState extends State<ServerListScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.servers.length,
-                  itemBuilder: (context, index) {
-                    final server = provider.servers[index];
-                    return _ServerListItem(server: server);
-                  },
+                return RefreshIndicator(
+                  onRefresh: () => provider.initialize(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: servers.length,
+                    itemBuilder: (context, index) {
+                      final server = servers[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: ServerListItem(
+                          server: server,
+                          onTap: () => _showServerDetails(context, server),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -107,6 +145,90 @@ class _ServerListScreenState extends State<ServerListScreen> {
         ],
       ),
     );
+  }
+
+  void _showAddServerDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add New Server'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Server Name',
+                hintText: 'Enter server name',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Location',
+                hintText: 'Enter server location',
+              ),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                labelText: 'Type',
+              ),
+              items: const [
+                DropdownMenuItem(
+                    value: 'Production', child: Text('Production')),
+                DropdownMenuItem(
+                    value: 'Development', child: Text('Development')),
+                DropdownMenuItem(value: 'Staging', child: Text('Staging')),
+              ],
+              onChanged: (value) {},
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Implement server addition
+              Navigator.pop(context);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => const SizedBox(
+        height: 300,
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Filter Servers',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 16),
+              // TODO: Implement filter options
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showServerDetails(BuildContext context, Server server) {
+    // TODO: Navigate to server details screen
   }
 }
 
