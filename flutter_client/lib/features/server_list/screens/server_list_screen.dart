@@ -6,6 +6,7 @@ import '../server_list_provider.dart';
 import '../widgets/server_list_item.dart';
 import '../widgets/server_filters.dart';
 import '../../../shared/models/server.dart';
+import '../widgets/add_server_dialog.dart';
 
 class ServerListScreen extends StatefulWidget {
   const ServerListScreen({Key? key}) : super(key: key);
@@ -147,58 +148,71 @@ class _ServerListScreenState extends State<ServerListScreen> {
     );
   }
 
+  // void _showAddServerDialog(BuildContext context) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: const Text('Add New Server'),
+  //       content: Column(
+  //         mainAxisSize: MainAxisSize.min,
+  //         children: [
+  //           TextField(
+  //             decoration: const InputDecoration(
+  //               labelText: 'Server Name',
+  //               hintText: 'Enter server name',
+  //             ),
+  //           ),
+  //           const SizedBox(height: 16),
+  //           TextField(
+  //             decoration: const InputDecoration(
+  //               labelText: 'Location',
+  //               hintText: 'Enter server location',
+  //             ),
+  //           ),
+  //           const SizedBox(height: 16),
+  //           DropdownButtonFormField<String>(
+  //             decoration: const InputDecoration(
+  //               labelText: 'Type',
+  //             ),
+  //             items: const [
+  //               DropdownMenuItem(
+  //                   value: 'Production', child: Text('Production')),
+  //               DropdownMenuItem(
+  //                   value: 'Development', child: Text('Development')),
+  //               DropdownMenuItem(value: 'Staging', child: Text('Staging')),
+  //             ],
+  //             onChanged: (value) {},
+  //           ),
+  //         ],
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('Cancel'),
+  //         ),
+  //         ElevatedButton(
+  //           onPressed: () {
+  //             // TODO: Implement server addition
+  //             Navigator.pop(context);
+  //           },
+  //           child: const Text('Add'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
   void _showAddServerDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New Server'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Server Name',
-                hintText: 'Enter server name',
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Location',
-                hintText: 'Enter server location',
-              ),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Type',
-              ),
-              items: const [
-                DropdownMenuItem(
-                    value: 'Production', child: Text('Production')),
-                DropdownMenuItem(
-                    value: 'Development', child: Text('Development')),
-                DropdownMenuItem(value: 'Staging', child: Text('Staging')),
-              ],
-              onChanged: (value) {},
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement server addition
-              Navigator.pop(context);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
+      builder: (context) => const AddServerDialog(), // 여기만 수정
+    ).then((result) {
+      if (result != null) {
+        // TODO: 서버 추가 로직 구현
+        print('New server details: $result');
+        // context.read<ServerListProvider>().addServer(result);
+      }
+    });
   }
 
   void _showFilterSheet(BuildContext context) {
