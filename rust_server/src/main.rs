@@ -33,7 +33,7 @@ async fn main() -> std::io::Result<()> {
     let repository = Repository::new(db_pool);
     
     // Services setup
-    let monitoring_service = MonitoringService::new(repository.clone());
+    let monitoring_service = MonitoringService::new();
     let ws_server = WebSocketServer::new();
 
     // Server setup
