@@ -1,4 +1,5 @@
 // src/api/mod.rs
+mod alerts;
 mod handlers;
 mod health;
 mod response;

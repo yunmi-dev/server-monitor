@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 openapi: 3.1.0
-=======
-openapi: 3.0.3
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
 info:
   title: Server Monitoring System API
   description: |

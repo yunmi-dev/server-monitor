@@ -1,8 +1,8 @@
 // src/api/servers.rs
 use actix_web::{web, HttpResponse, Result};
-use chrono::Utc;
+use chrono::{Utc, Datatime};
 use uuid::Uuid;
-use crate::db::{models::Server, repository::Repository};
+use crate::db::{models::{Server, ServerType}, repository::Repository};
 
 pub async fn create_server(
     repo: web::Data<Repository>,
@@ -65,10 +65,27 @@ pub struct CreateServerRequest {
     pub hostname: String,
     pub ip_address: String,
     pub location: String,
-    pub server_type: String,
+    pub server_type: ServerType,
 }
 
 #[derive(serde::Deserialize)]
 pub struct UpdateServerStatusRequest {
     pub is_online: bool,
+}
+
+#[derive(serde::Deserialize)]
+pub struct MetricsQueryParams {
+    pub from: DateTime<Utc>,
+    pub to: DateTime<Utc>,
+}
+
+pub async fn get_server_metrics(
+    repo: web::Data<Repository>,
+    server_id: web::Path<String>,
+    query: web::Query<MetricsQueryParams>,
+) -> Result<HttpResponse> {
+    let metrics = repo.get_server_metrics(&server_id, query.from, query.to).await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    Ok(HttpResponse::Ok().json(metrics))
 }

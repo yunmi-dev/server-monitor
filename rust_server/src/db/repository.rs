@@ -282,4 +282,13 @@ impl Repository {
 
         Ok(result)
     }
+
+    pub async fn check_connection(&self) -> anyhow::Result<()> {
+        // Simple query to check if the database connection is alive
+        sqlx::query("SELECT 1")
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+            .map_err(Into::into)
+    }
 }

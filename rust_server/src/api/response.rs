@@ -2,71 +2,54 @@
 use serde::Serialize;
 use actix_web::HttpResponse;
 
-
-// #[derive(Serialize)]
-// pub struct ApiResponse<T> 
-// where
-//     T: Serialize,
-// {
-//     pub success: bool,
-//     pub data: Option<T>,
-//     pub error: Option<String>,
-// }
-
-// impl<T: Serialize> ApiResponse<T> {
-//     pub fn success(data: T) -> HttpResponse {
-//         HttpResponse::Ok().json(Self {
-//             success: true,
-//             data: Some(data),
-//             error: None,
-//         })
-//     }
-
-//     pub fn error(err: &str) -> HttpResponse {
-//         HttpResponse::BadRequest().json(Self {
-//             success: false,
-//             data: None,
-//             error: Some(err.to_string()),
-//         })
-//     }
-// }
-
 #[derive(Serialize)]
-pub struct ApiResponse<T> {
+pub struct ApiResponse<T>
+where
+    T: Serialize,
+{
     pub success: bool,
+    pub error: Option<String>,
+    pub message: Option<String>,
     pub data: Option<T>,
-    pub error: Option<String>
 }
 
-// 성공 응답을 위한 구현
-impl<T: Serialize> ApiResponse<T> {
+impl<T> ApiResponse<T>
+where
+    T: Serialize,
+{
     pub fn success(data: T) -> HttpResponse {
-        HttpResponse::Ok().json(ApiResponse {
+        HttpResponse::Ok().json(Self {
             success: true,
+            error: None,
+            message: None,
             data: Some(data),
-            error: None
         })
     }
-}
 
-// 에러 응답을 위한 구현
-impl ApiResponse<()> {
-    pub fn error(message: &str) -> HttpResponse {
-        HttpResponse::Ok().json(ApiResponse::<()> {
+    pub fn error(error: &str, message: &str) -> HttpResponse {
+        HttpResponse::BadRequest().json(Self {
             success: false,
-            data: None,
-            error: Some(message.to_string())
+            error: Some(error.to_string()),
+            message: Some(message.to_string()),
+            data: None::<T>,
         })
     }
-}
 
-// 필요한 경우 커스텀 에러 타입을 위한 구현
-impl<E: Serialize> ApiResponse<E> {
-    pub fn error_with_data(message: &str, error_data: E) -> HttpResponse {
-        HttpResponse::Ok().json(ApiResponse {
+    pub fn not_found(message: &str) -> HttpResponse {
+        HttpResponse::NotFound().json(Self {
             success: false,
-            data: Some(error_data),
-            error: Some(message.to_string())
+            error: Some("Resource not found".to_string()),
+            message: Some(message.to_string()),
+            data: None::<T>,
+        })
+    }
+
+    pub fn unauthorized(message: &str) -> HttpResponse {
+        HttpResponse::Unauthorized().json(Self {
+            success: false,
+            error: Some("Authentication failed".to_string()),
+            message: Some(message.to_string()),
+            data: None::<T>,
         })
     }
 }

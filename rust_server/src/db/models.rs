@@ -2,29 +2,69 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
+use std::str::FromStr;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
 #[sqlx(type_name = "server_type", rename_all = "lowercase")]
 pub enum ServerType {
     Physical,
     Virtual,
-    Container
+    Container,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type)]
+impl FromStr for ServerType {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "physical" => Ok(ServerType::Physical),
+            "virtual" => Ok(ServerType::Virtual),
+            "container" => Ok(ServerType::Container),
+            _ => Err(format!("Unknown server type: {}", s)),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
 #[sqlx(type_name = "alert_severity", rename_all = "lowercase")]
 pub enum AlertSeverity {
     Info,
     Warning,
-    Critical
+    Critical,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type)]
+impl FromStr for AlertSeverity {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "info" => Ok(AlertSeverity::Info),
+            "warning" => Ok(AlertSeverity::Warning),
+            "critical" => Ok(AlertSeverity::Critical),
+            _ => Err(format!("Unknown severity: {}", s)),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
 #[sqlx(type_name = "user_role", rename_all = "lowercase")]
 pub enum UserRole {
     Admin,
     User,
-    Viewer
+    Viewer,
+}
+
+impl FromStr for UserRole {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "admin" => Ok(UserRole::Admin),
+            "user" => Ok(UserRole::User),
+            "viewer" => Ok(UserRole::Viewer),
+            _ => Err(format!("Unknown role: {}", s)),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -40,7 +80,7 @@ pub struct Server {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]
 pub struct MetricsSnapshot {
     pub id: i64,
     pub server_id: String,

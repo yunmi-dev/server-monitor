@@ -1,7 +1,7 @@
 // src/api/health.rs
 use actix_web::{web, HttpResponse};
 use serde::Serialize;
-use crate::db::Repository;
+use crate::db::repository::Repository;
 
 #[derive(Serialize)]
 pub struct HealthStatus {
@@ -12,7 +12,7 @@ pub struct HealthStatus {
 }
 
 pub async fn health_check(repo: web::Data<Repository>) -> HttpResponse {
-    let db_status = repo.check_connection().await.is_ok();
+    let db_status = repo.get_ref().check_connection().await.is_ok();
 
     HttpResponse::Ok().json(HealthStatus {
         status: "ok".to_string(),
