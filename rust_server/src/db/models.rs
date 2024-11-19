@@ -84,9 +84,9 @@ pub struct Server {
 pub struct MetricsSnapshot {
     pub id: i64,
     pub server_id: String,
-    pub cpu_usage: f32,
-    pub memory_usage: f32,
-    pub disk_usage: f32,
+    pub cpu_usage: f64,
+    pub memory_usage: f64,
+    pub disk_usage: f64,
     pub network_rx: i64,
     pub network_tx: i64,
     pub processes: JsonValue,

@@ -1,6 +1,6 @@
 // src/api/servers.rs
 use actix_web::{web, HttpResponse, Result};
-use chrono::{Utc, Datatime};
+use chrono::{Utc, DateTime};
 use uuid::Uuid;
 use crate::db::{models::{Server, ServerType}, repository::Repository};
 
@@ -78,6 +78,7 @@ pub struct MetricsQueryParams {
     pub from: DateTime<Utc>,
     pub to: DateTime<Utc>,
 }
+
 
 pub async fn get_server_metrics(
     repo: web::Data<Repository>,
