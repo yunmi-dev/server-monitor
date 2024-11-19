@@ -107,27 +107,23 @@ impl WebSocketConnection {
             match cmd_type {
                 "subscribe" => {
                     if let Some(server_id) = command.get("server_id").and_then(|v| v.as_str()) {
-                        // Cancel existing subscription
-                        match self.subscription_handles.lock() {
-                            Ok(handles) => {
-                                if let Some(handle) = handles.get(server_id) {
-                                    ctx.cancel_future(*handle);
-                                }
-                            },
-                            Err(e) => {
-                                log::error!("Failed to lock subscription handles: {}", e);
+                        // 기존 구독 취소
+                        if let Ok(handles) = self.subscription_handles.lock() {
+                            if let Some(handle) = handles.get(server_id) {
+                                ctx.cancel_future(*handle);
                             }
                         }
-
-                        let _monitoring_service = monitoring::MonitoringService::new(); // or similar initialization
-                        let server_id = self.server_id.clone();
-                        
+     
+                        // 서버 ID 저장
+                        self.server_id = Some(server_id.to_string());
+                        let server_id_clone = self.server_id.clone();
+     
                         let handle = ctx.run_interval(Duration::from_secs(1), move |actor, ctx| {
                             let monitoring = monitoring::MonitoringService::new();
-                            let server_id = server_id.clone();
+                            let server_id = server_id_clone.clone();
                             
                             let fut = async move {
-                                if let Some(server_id_str) = server_id {  // Unwrap Option<String>
+                                if let Some(server_id_str) = server_id {
                                     if let Some(metrics) = monitoring.get_server_metrics(&server_id_str).await {
                                         let message = json!({
                                             "type": "server_metrics",
@@ -142,7 +138,7 @@ impl WebSocketConnection {
                                     "".to_string()
                                 }
                             }
-                            .into_actor(actor)  // Changed from self to actor
+                            .into_actor(actor)
                             .map(|result, _, ctx| {
                                 if !result.is_empty() {
                                     ctx.text(result);
@@ -151,15 +147,10 @@ impl WebSocketConnection {
                             
                             ctx.wait(fut);
                         });
-
-                        if let Some(server_id_str) = server_id {
-                            if let Ok(mut handles) = self.subscription_handles.lock() {
-                                handles.insert(server_id_str.to_string(), handle);
-                            } else {
-                                log::error!("Failed to lock subscription handles");
-                            }
-                        } else {
-                            log::error!("Server ID is None");
+     
+                        // 핸들 저장
+                        if let Ok(mut handles) = self.subscription_handles.lock() {
+                            handles.insert(server_id.to_string(), handle);
                         }
                     }
                 }
@@ -169,13 +160,12 @@ impl WebSocketConnection {
                             if let Some(handle) = handles.remove(server_id) {
                                 ctx.cancel_future(handle);
                             }
-                        } else {
-                            log::error!("Failed to lock subscription handles during unsubscribe");
                         }
                     }
+                    self.server_id = None;
                 }
                 _ => {}
             }
         }
+     }
     }
-}

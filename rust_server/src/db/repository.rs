@@ -22,29 +22,21 @@ impl Repository {
             INSERT INTO servers 
             (id, name, hostname, ip_address, location, server_type, is_online, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            RETURNING id as "id!", 
-                      name as "name!", 
-                      hostname as "hostname!", 
-                      ip_address as "ip_address!", 
-                      location as "location!", 
-                      server_type as "server_type!", 
-                      is_online as "is_online!", 
-                      created_at as "created_at!", 
-                      updated_at as "updated_at!"
+            RETURNING *
             "#,
             server.id,
             server.name,
             server.hostname,
             server.ip_address,
             server.location,
-            server.server_type,
+            server.server_type as ServerType,
             server.is_online,
             server.created_at,
             server.updated_at
         )
         .fetch_one(&self.pool)
         .await?;
-
+    
         Ok(result)
     }
     
@@ -52,48 +44,51 @@ impl Repository {
         let result = sqlx::query_as!(
             Server,
             r#"
-            SELECT id as "id!", 
-                   name as "name!", 
-                   hostname as "hostname!", 
-                   ip_address as "ip_address!", 
-                   location as "location!", 
-                   server_type as "server_type!",
-                   is_online as "is_online!",
-                   created_at as "created_at!",
-                   updated_at as "updated_at!"
-            FROM servers WHERE id = $1
+            SELECT 
+                id as "id!", 
+                name as "name!",
+                hostname as "hostname!",
+                ip_address as "ip_address!",
+                location as "location!",
+                server_type as "server_type!: ServerType",
+                is_online as "is_online!",
+                created_at as "created_at!",
+                updated_at as "updated_at!"
+            FROM servers 
+            WHERE id = $1
             "#,
             id
         )
         .fetch_optional(&self.pool)
         .await?;
-
+    
         Ok(result)
     }
-
+    
     pub async fn list_servers(&self) -> Result<Vec<Server>> {
         let results = sqlx::query_as!(
             Server,
             r#"
-            SELECT id as "id!", 
-                   name as "name!", 
-                   hostname as "hostname!", 
-                   ip_address as "ip_address!", 
-                   location as "location!", 
-                   server_type as "server_type!",
-                   is_online as "is_online!",
-                   created_at as "created_at!",
-                   updated_at as "updated_at!"
+            SELECT 
+                id as "id!", 
+                name as "name!",
+                hostname as "hostname!",
+                ip_address as "ip_address!",
+                location as "location!",
+                server_type as "server_type!: ServerType",
+                is_online as "is_online!",
+                created_at as "created_at!",
+                updated_at as "updated_at!"
             FROM servers 
             ORDER BY created_at DESC
             "#
         )
         .fetch_all(&self.pool)
         .await?;
-
+    
         Ok(results)
     }
-
+        
     pub async fn update_server_status(&self, id: &str, is_online: bool) -> Result<()> {
         sqlx::query!(
             r#"
@@ -120,9 +115,9 @@ impl Repository {
             RETURNING id
             "#,
             snapshot.server_id,
-            snapshot.cpu_usage,
-            snapshot.memory_usage,
-            snapshot.disk_usage,
+            snapshot.cpu_usage as f64,
+            snapshot.memory_usage as f64,
+            snapshot.disk_usage as f64,
             snapshot.network_rx,
             snapshot.network_tx,
             snapshot.processes,
@@ -130,7 +125,7 @@ impl Repository {
         )
         .fetch_one(&self.pool)
         .await?;
-
+    
         Ok(result.id)
     }
 

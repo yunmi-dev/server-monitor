@@ -6,6 +6,10 @@ use std::time::{Duration, Instant};
 use crate::monitoring::MonitoringService;
 use tokio::sync::mpsc;
 
+use actix::Message;
+use actix::Handler;
+use crate::db::models::MetricsSnapshot;
+
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -42,7 +46,7 @@ impl Actor for WebSocketConnection {
         self.heartbeat(ctx);
         
         // Set up metrics stream
-        let (tx, mut rx) = mpsc::channel(32);
+        let (_tx, mut rx) = mpsc::channel(32);
         let addr = ctx.address();
         
         tokio::spawn(async move {
@@ -83,6 +87,22 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketConnecti
                 ctx.stop();
             }
             _ => {}
+        }
+    }
+}
+
+// 메시지 타입 정의
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct MetricsMessage(MetricsSnapshot);
+
+// Handler 구현
+impl Handler<MetricsMessage> for WebSocketConnection {
+    type Result = ();
+
+    fn handle(&mut self, msg: MetricsMessage, ctx: &mut Self::Context) {
+        if let Some(metrics_json) = serde_json::to_string(&msg.0).ok() {
+            ctx.text(metrics_json);
         }
     }
 }

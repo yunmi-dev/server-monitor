@@ -30,8 +30,9 @@ impl MonitoringService {
         let cpu_usage = system.global_cpu_info().cpu_usage();
         let total_memory = system.total_memory();
         let used_memory = system.used_memory();
-        let memory_usage = (used_memory as f32 / total_memory as f32) * 100.0;
-        
+        //let memory_usage = (used_memory as f32 / total_memory as f32) * 100.0;
+        //변수 선언 제거
+
         // Collect process information
         let processes: Vec<serde_json::Value> = system.processes().iter()
         .take(10)
@@ -48,8 +49,8 @@ impl MonitoringService {
         let snapshot = MetricsSnapshot {
             id: 0, // Will be set by database
             server_id: server_id.to_string(),
-            cpu_usage,
-            memory_usage,
+            cpu_usage: f64::from(cpu_usage),
+            memory_usage: (used_memory as f32 / total_memory as f32 * 100.0).into(),
             disk_usage: 0.0, // Implement disk usage collection
             network_rx: 0,    // Implement network metrics
             network_tx: 0,

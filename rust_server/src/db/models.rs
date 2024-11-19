@@ -25,6 +25,18 @@ impl FromStr for ServerType {
     }
 }
 
+impl From<&str> for ServerType {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "physical" => ServerType::Physical,
+            "virtual" => ServerType::Virtual,
+            "container" => ServerType::Container,
+            _ => panic!("Invalid server type: {}", s),
+        }
+    }
+}
+
+
 #[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
 #[sqlx(type_name = "alert_severity", rename_all = "lowercase")]
 pub enum AlertSeverity {
@@ -46,6 +58,18 @@ impl FromStr for AlertSeverity {
     }
 }
 
+impl From<&str> for AlertSeverity {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "info" => AlertSeverity::Info,
+            "warning" => AlertSeverity::Warning,
+            "critical" => AlertSeverity::Critical,
+            _ => panic!("Invalid severity: {}", s),
+        }
+    }
+}
+
+
 #[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
 #[sqlx(type_name = "user_role", rename_all = "lowercase")]
 pub enum UserRole {
@@ -66,6 +90,18 @@ impl FromStr for UserRole {
         }
     }
 }
+
+impl From<&str> for UserRole {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "admin" => UserRole::Admin,
+            "user" => UserRole::User,
+            "viewer" => UserRole::Viewer,
+            _ => panic!("Invalid role: {}", s),
+        }
+    }
+}
+
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Server {
