@@ -1,0 +1,24 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Rust
+/rust_server/target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Flutter/Dart
+/flutter_client/build/
+/flutter_client/.dart_tool/
+/flutter_client/.flutter-plugins
+/flutter_client/.flutter-plugins-dependencies
+/flutter_client/.packages

@@ -6,7 +6,11 @@ services:
     environment:
       POSTGRES_DB: flickdb
       POSTGRES_USER: flickuser
+<<<<<<< HEAD
       POSTGRES_PASSWORD: flickpass # 실제 운영환경에서는 보안 강화 필요
+=======
+      POSTGRES_PASSWORD: flickpass
+>>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
     ports:
       - "5432:5432"
     volumes:
@@ -38,6 +42,12 @@ services:
         condition: service_healthy
 
 volumes:
+<<<<<<< HEAD
   timescaledb_data: # Database 데이터 저장
   cargo_cache: # Rust 빌드 캐시
   target_cache: # Rust 컴파일 결과물 캐시
+=======
+  timescaledb_data:
+  cargo_cache:
+  target_cache:
+>>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
