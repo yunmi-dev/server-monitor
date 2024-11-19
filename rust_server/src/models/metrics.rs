@@ -19,7 +19,6 @@ pub struct ProcessMetrics {
     pub name: String,
     pub cpu_usage: f32,
     pub memory_usage: u64,
-<<<<<<< HEAD
 }
 
 // ServerMetrics에 대한 구현 추가
@@ -121,6 +120,4 @@ mod tests {
         assert!(!process_low.is_high_cpu());
         assert!(!process_low.is_high_memory(1000)); // 10% 사용
     }
-=======
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
 }

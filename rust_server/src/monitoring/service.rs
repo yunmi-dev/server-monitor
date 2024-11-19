@@ -1,25 +1,17 @@
 // src/monitoring/service.rs
 use tokio::sync::RwLock;
 use std::sync::Arc;
-<<<<<<< HEAD
 use std::collections::HashMap;
 use chrono::Utc;
 use super::collector::MetricsCollector;
 use crate::models::metrics::ServerMetrics;
 use crate::db::models::MetricsSnapshot;
 use crate::db::repository::Repository;
-=======
-use crate::models::metrics::{ServerMetrics, ProcessMetrics};
-use crate::db::Repository;
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
 
 pub struct MonitoringService {
     collector: Arc<RwLock<MetricsCollector>>,
     repository: Repository,
-<<<<<<< HEAD
     metrics_cache: Arc<RwLock<HashMap<String, ServerMetrics>>>,
-=======
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
 }
 
 impl MonitoringService {
@@ -28,10 +20,7 @@ impl MonitoringService {
         let service = Self {
             collector: Arc::new(RwLock::new(collector)),
             repository,
-<<<<<<< HEAD
             metrics_cache: Arc::new(RwLock::new(HashMap::new())),
-=======
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
         };
         
         service.clone().start();
@@ -42,15 +31,11 @@ impl MonitoringService {
         Self {
             collector: Arc::clone(&self.collector),
             repository: self.repository.clone(),
-<<<<<<< HEAD
             metrics_cache: Arc::clone(&self.metrics_cache),
-=======
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
         }
     }
 
     async fn start(self) {
-<<<<<<< HEAD
         tokio::spawn(async move {
             loop {
                 self.collect_and_store_metrics().await;
@@ -236,15 +221,4 @@ pub mod metrics {
         pub processes: JsonValue,
         pub timestamp: DateTime<Utc>,
     }
-=======
-        let collector = self.collector.write().await;
-        collector.start_collection().await;
-    }
-
-    pub async fn get_current_metrics(&self) -> Option<ServerMetrics> {
-        self.collector.read().await.get_current_metrics().await
-    }
-    
-    // Add more methods...
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
 }

@@ -3,7 +3,6 @@ use serde::Serialize;
 use actix_web::HttpResponse;
 
 
-<<<<<<< HEAD
 // #[derive(Serialize)]
 // pub struct ApiResponse<T> 
 // where
@@ -68,32 +67,6 @@ impl<E: Serialize> ApiResponse<E> {
             success: false,
             data: Some(error_data),
             error: Some(message.to_string())
-=======
-#[derive(Serialize)]
-pub struct ApiResponse<T> 
-where
-    T: Serialize,
-{
-    pub success: bool,
-    pub data: Option<T>,
-    pub error: Option<String>,
-}
-
-impl<T: Serialize> ApiResponse<T> {
-    pub fn success(data: T) -> HttpResponse {
-        HttpResponse::Ok().json(Self {
-            success: true,
-            data: Some(data),
-            error: None,
-        })
-    }
-
-    pub fn error(err: &str) -> HttpResponse {
-        HttpResponse::BadRequest().json(Self {
-            success: false,
-            data: None,
-            error: Some(err.to_string()),
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
         })
     }
 }

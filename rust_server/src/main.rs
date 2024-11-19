@@ -21,6 +21,7 @@ mod models;
 mod monitoring;
 mod websocket;
 mod error;
+mod config;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -33,11 +34,7 @@ async fn main() -> std::io::Result<()> {
     let repository = Repository::new(db_pool);
     
     // Services setup
-<<<<<<< HEAD
     let monitoring_service = MonitoringService::new();
-=======
-    let monitoring_service = MonitoringService::new(repository.clone());
->>>>>>> d18e561ecf6f553bddd2ea81a6fbdc848ce1417d
     let ws_server = WebSocketServer::new();
 
     // Server setup
