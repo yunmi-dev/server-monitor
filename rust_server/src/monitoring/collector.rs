@@ -25,11 +25,13 @@ pub struct ProcessInfo {
     pub memory_usage: u64,
 }
 
+#[allow(dead_code)]
 pub struct MetricsCollector {
     system: Arc<Mutex<System>>,
     last_metrics: Arc<Mutex<Option<SystemMetrics>>>,
 }
 
+#[allow(dead_code)]
 impl MetricsCollector {
     pub fn new() -> Self {
         let mut system = System::new_all();

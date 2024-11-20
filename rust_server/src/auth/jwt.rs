@@ -13,6 +13,7 @@ pub struct Claims {
     pub iat: i64,       // Issued at
 }
 
+#[allow(dead_code)]
 pub fn create_token(user_id: &str, email: &str, role: &str) -> Result<String, AppError> {
     let expiration = Utc::now() + Duration::hours(24);
     let claims = Claims {

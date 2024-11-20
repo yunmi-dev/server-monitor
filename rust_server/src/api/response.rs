@@ -13,6 +13,7 @@ where
     pub data: Option<T>,
 }
 
+#[allow(dead_code)]
 impl<T> ApiResponse<T>
 where
     T: Serialize,

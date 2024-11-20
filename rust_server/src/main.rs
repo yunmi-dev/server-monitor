@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use rust_server::{
    api,
-   auth::AuthenticationMiddleware,
+   //auth::AuthenticationMiddleware,
    db::{self, repository::Repository, DbPool},
    monitoring::MonitoringService,
    websocket,
@@ -40,7 +40,7 @@ async fn main() -> Result<(), std::io::Error> {
        App::new()
            .wrap(setup_cors())
            .wrap(middleware::Logger::default())
-           .wrap(AuthenticationMiddleware)
+           //.wrap(AuthenticationMiddleware)
            .app_data(web::Data::new(repository.clone()))
            .app_data(web::Data::new(monitoring_service.clone()))
            .configure(api::configure_routes)

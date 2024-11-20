@@ -2,6 +2,7 @@
 use serde::Deserialize;
 use ::config::{Config, ConfigError, Environment, File};
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
     pub server: HttpServerConfig,
@@ -10,6 +11,7 @@ pub struct ServerConfig {
     pub monitoring: MonitoringConfig,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct HttpServerConfig {
     pub host: String,
@@ -17,6 +19,7 @@ pub struct HttpServerConfig {
     pub cors_origins: Vec<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct DatabaseConfig {
     pub url: String,
@@ -24,12 +27,14 @@ pub struct DatabaseConfig {
     pub timeout_seconds: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct AuthConfig {
     pub jwt_secret: String,
     pub token_expiration_hours: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct MonitoringConfig {
     pub metrics_interval_seconds: u64,
@@ -37,6 +42,7 @@ pub struct MonitoringConfig {
     pub alert_thresholds: AlertThresholds,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct AlertThresholds {
     pub cpu_warning: f32,
@@ -47,6 +53,7 @@ pub struct AlertThresholds {
     pub disk_critical: f32,
 }
 
+#[allow(dead_code)]
 impl ServerConfig {
     pub fn new() -> Result<Self, ConfigError> {
         let builder = Config::builder()

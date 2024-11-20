@@ -3,6 +3,7 @@ use thiserror::Error;
 use actix_web::{HttpResponse, ResponseError};
 use serde_json::json;
 
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum AppError {
     #[error("Authentication error: {0}")]

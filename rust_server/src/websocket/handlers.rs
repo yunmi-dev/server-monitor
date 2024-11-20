@@ -19,17 +19,17 @@ pub struct WebSocketConnection {
     monitoring_service: MonitoringService,
     subscription_handles: Arc<Mutex<HashMap<String, SpawnHandle>>>,
     server_id: Option<String>,
-    repository: Arc<Repository>,
+    //repository: Arc<Repository>,
 }
 
 impl WebSocketConnection {
-    pub fn new(monitoring_service: MonitoringService, repository: Arc<Repository>) -> Self {
+    pub fn new(monitoring_service: MonitoringService, _repository: Arc<Repository>) -> Self {
         Self {
             last_heartbeat: Instant::now(),
             monitoring_service,
             subscription_handles: Arc::new(Mutex::new(HashMap::new())),
             server_id: None,
-            repository,
+            //repository,
         }
     }
 

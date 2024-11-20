@@ -9,6 +9,7 @@ use crate::db::{models::MetricsSnapshot, repository::Repository};
 use chrono::Utc;
 use serde_json::json;
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct MonitoringService {
     repository: Arc<Repository>,
@@ -16,6 +17,7 @@ pub struct MonitoringService {
     collector: Arc<RwLock<MetricsCollector>>,
 }
 
+#[allow(dead_code)]
 impl MonitoringService {
     pub fn new(repository: Arc<Repository>) -> Self {
         let mut system = System::new_all();
