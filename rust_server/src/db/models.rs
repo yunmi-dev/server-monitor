@@ -3,104 +3,76 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
 use std::str::FromStr;
+use std::fmt::Display;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
-#[sqlx(type_name = "server_type", rename_all = "lowercase")]
-pub enum ServerType {
-    Physical,
-    Virtual,
-    Container,
-}
-
-impl FromStr for ServerType {
-    type Err = String;
-    
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "physical" => Ok(ServerType::Physical),
-            "virtual" => Ok(ServerType::Virtual),
-            "container" => Ok(ServerType::Container),
-            _ => Err(format!("Unknown server type: {}", s)),
+macro_rules! implement_enum {
+    ($name:ident { $($variant:ident => $str:expr),* $(,)* }) => {
+        #[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
+        #[sqlx(rename_all = "lowercase")]
+        pub enum $name {
+            $($variant),*
         }
-    }
-}
 
-impl From<&str> for ServerType {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "physical" => ServerType::Physical,
-            "virtual" => ServerType::Virtual,
-            "container" => ServerType::Container,
-            _ => panic!("Invalid server type: {}", s),
+        impl $name {
+            pub fn as_ref(&self) -> &str {
+                match self {
+                    $(Self::$variant => $str),*
+                }
+            }
         }
-    }
-}
 
-
-#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
-#[sqlx(type_name = "alert_severity", rename_all = "lowercase")]
-pub enum AlertSeverity {
-    Info,
-    Warning,
-    Critical,
-}
-
-impl FromStr for AlertSeverity {
-    type Err = String;
-    
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "info" => Ok(AlertSeverity::Info),
-            "warning" => Ok(AlertSeverity::Warning),
-            "critical" => Ok(AlertSeverity::Critical),
-            _ => Err(format!("Unknown severity: {}", s)),
+        impl Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.as_ref())
+            }
         }
-    }
-}
 
-impl From<&str> for AlertSeverity {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "info" => AlertSeverity::Info,
-            "warning" => AlertSeverity::Warning,
-            "critical" => AlertSeverity::Critical,
-            _ => panic!("Invalid severity: {}", s),
+        impl FromStr for $name {
+            type Err = String;
+            
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s.to_lowercase().as_str() {
+                    $($str => Ok(Self::$variant),)*
+                    _ => Err(format!("Invalid {} value: {}", stringify!($name), s))
+                }
+            }
         }
-    }
-}
 
-
-#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
-#[sqlx(type_name = "user_role", rename_all = "lowercase")]
-pub enum UserRole {
-    Admin,
-    User,
-    Viewer,
-}
-
-impl FromStr for UserRole {
-    type Err = String;
-    
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "admin" => Ok(UserRole::Admin),
-            "user" => Ok(UserRole::User),
-            "viewer" => Ok(UserRole::Viewer),
-            _ => Err(format!("Unknown role: {}", s)),
+        impl From<&str> for $name {
+            fn from(s: &str) -> Self {
+                match s.to_lowercase().as_str() {
+                    $($str => Self::$variant,)*
+                    _ => panic!("Invalid {} value: {}", stringify!($name), s)
+                }
+            }
         }
-    }
+
+        impl From<String> for $name {
+            fn from(s: String) -> Self {
+                Self::from(s.as_str())
+            }
+        }
+    };
 }
 
-impl From<&str> for UserRole {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "admin" => UserRole::Admin,
-            "user" => UserRole::User,
-            "viewer" => UserRole::Viewer,
-            _ => panic!("Invalid role: {}", s),
-        }
-    }
-}
+// Enum definitions
+implement_enum!(ServerType {
+    Physical => "physical",
+    Virtual => "virtual",
+    Container => "container"
+});
+
+implement_enum!(AlertSeverity {
+    Info => "info",
+    Warning => "warning",
+    Critical => "critical"
+});
+
+implement_enum!(UserRole {
+    Admin => "admin",
+    User => "user",
+    Viewer => "viewer"
+});
 
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -110,7 +82,7 @@ pub struct Server {
     pub hostname: String,
     pub ip_address: String,
     pub location: String,
-    pub server_type: ServerType,  // String에서 ServerType으로 변경
+    pub server_type: ServerType,
     pub is_online: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -134,11 +106,11 @@ pub struct Alert {
     pub id: i64,
     pub server_id: String,
     pub alert_type: String,
-    pub severity: AlertSeverity,  // String에서 AlertSeverity로 변경 // 타입을 sql 파일에 맞춰야함
+    pub severity: AlertSeverity,
     pub message: String,
     pub created_at: DateTime<Utc>,
     pub acknowledged_at: Option<DateTime<Utc>>,
-    pub acknowledged_by: Option<String>,  // 누락된 필드 추가
+    pub acknowledged_by: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -147,7 +119,7 @@ pub struct User {
     pub email: String,
     pub password_hash: String,
     pub name: String,
-    pub role: UserRole,  // String에서 UserRole로 변경
+    pub role: UserRole,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

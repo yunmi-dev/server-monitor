@@ -5,6 +5,7 @@ use super::models::*;
 use super::DbPool;
 use anyhow::Result;
 
+#[derive(Clone)]
 pub struct Repository {
     pool: DbPool,
 }
@@ -29,7 +30,7 @@ impl Repository {
             server.hostname,
             server.ip_address,
             server.location,
-            server.server_type as ServerType,
+            server.server_type.to_string(),
             server.is_online,
             server.created_at,
             server.updated_at
@@ -50,7 +51,7 @@ impl Repository {
                 hostname as "hostname!",
                 ip_address as "ip_address!",
                 location as "location!",
-                server_type as "server_type!: ServerType",
+                server_type as "server_type!: _",
                 is_online as "is_online!",
                 created_at as "created_at!",
                 updated_at as "updated_at!"
@@ -75,7 +76,7 @@ impl Repository {
                 hostname as "hostname!",
                 ip_address as "ip_address!",
                 location as "location!",
-                server_type as "server_type!: ServerType",
+                server_type as "server_type!: _",
                 is_online as "is_online!",
                 created_at as "created_at!",
                 updated_at as "updated_at!"
@@ -166,26 +167,28 @@ impl Repository {
             Alert,
             r#"
             INSERT INTO alerts 
-            (server_id, alert_type, severity, message, created_at, acknowledged_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            (server_id, alert_type, severity, message, created_at, acknowledged_at, acknowledged_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id as "id!", 
                       server_id as "server_id!", 
                       alert_type as "alert_type!", 
-                      severity as "severity!", 
+                      severity as "severity!: AlertSeverity", 
                       message as "message!",
                       created_at as "created_at!",
-                      acknowledged_at
+                      acknowledged_at,
+                      acknowledged_by
             "#,
             alert.server_id,
             alert.alert_type,
-            alert.severity,
+            alert.severity.to_string(),  //enum을 문자열로 변환
             alert.message,
             alert.created_at,
-            alert.acknowledged_at
+            alert.acknowledged_at,
+            alert.acknowledged_by //추가
         )
         .fetch_one(&self.pool)
         .await?;
-
+    
         Ok(result)
     }
 
@@ -194,12 +197,13 @@ impl Repository {
             Alert,
             r#"
             SELECT id as "id!", 
-                   server_id as "server_id!", 
-                   alert_type as "alert_type!", 
-                   severity as "severity!", 
-                   message as "message!",
-                   created_at as "created_at!",
-                   acknowledged_at
+                server_id as "server_id!", 
+                alert_type as "alert_type!", 
+                severity as "severity!: AlertSeverity", 
+                message as "message!",
+                created_at as "created_at!",
+                acknowledged_at,
+                acknowledged_by
             FROM alerts
             WHERE acknowledged_at IS NULL
             ORDER BY created_at DESC
@@ -238,7 +242,7 @@ impl Repository {
                       email as "email!", 
                       password_hash as "password_hash!", 
                       name as "name!", 
-                      role as "role!",
+                      role as "role!: UserRole",
                       created_at as "created_at!",
                       updated_at as "updated_at!"
             "#,
@@ -246,7 +250,7 @@ impl Repository {
             user.email,
             user.password_hash,
             user.name,
-            user.role,
+            user.role.to_string(),
             user.created_at,
             user.updated_at
         )
@@ -264,7 +268,7 @@ impl Repository {
                    email as "email!", 
                    password_hash as "password_hash!", 
                    name as "name!", 
-                   role as "role!",
+                   role as "role!: UserRole",
                    created_at as "created_at!",
                    updated_at as "updated_at!"
             FROM users 

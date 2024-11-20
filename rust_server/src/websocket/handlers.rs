@@ -1,34 +1,39 @@
 // src/websocket/handlers.rs
-use actix::{Actor, StreamHandler, ActorContext, AsyncContext};
+use actix::{
+    Actor, ActorContext, AsyncContext, Handler, Message, StreamHandler, 
+    SpawnHandle, ActorFutureExt, WrapFuture,
+};
 use actix_web_actors::ws;
-//use serde_json::json;
+use serde_json::json;
 use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 use crate::monitoring::MonitoringService;
-use tokio::sync::mpsc;
-
-use actix::Message;
-use actix::Handler;
-use crate::db::models::MetricsSnapshot;
+use crate::db::{repository::Repository, models::MetricsSnapshot};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct WebSocketConnection {
-    monitoring_service: MonitoringService,
     last_heartbeat: Instant,
+    monitoring_service: MonitoringService,
+    subscription_handles: Arc<Mutex<HashMap<String, SpawnHandle>>>,
     server_id: Option<String>,
+    repository: Arc<Repository>,
 }
 
 impl WebSocketConnection {
-    pub fn new(monitoring_service: MonitoringService) -> Self {
+    pub fn new(monitoring_service: MonitoringService, repository: Arc<Repository>) -> Self {
         Self {
-            monitoring_service,
             last_heartbeat: Instant::now(),
+            monitoring_service,
+            subscription_handles: Arc::new(Mutex::new(HashMap::new())),
             server_id: None,
+            repository,
         }
     }
 
-    fn heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
+    fn schedule_heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
         ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
             if Instant::now().duration_since(act.last_heartbeat) > CLIENT_TIMEOUT {
                 ctx.stop();
@@ -37,23 +42,94 @@ impl WebSocketConnection {
             ctx.ping(b"");
         });
     }
+
+
+    fn start_metrics_stream(&self, ctx: &mut ws::WebsocketContext<Self>) {
+        let monitoring_service = self.monitoring_service.clone();
+        let handle = ctx.run_interval(Duration::from_secs(1), move |actor, ctx| {
+            let monitoring = monitoring_service.clone();
+            
+            let fut = async move {
+                if let Some(metrics) = monitoring.get_current_metrics().await {
+                    let message = json!({
+                        "type": "metrics",
+                        "data": metrics
+                    });
+                    message.to_string()
+                } else {
+                    "".to_string()
+                }
+            }
+            .into_actor(actor)
+            .map(|result, _, ctx| {
+                if !result.is_empty() {
+                    ctx.text(result);
+                }
+            });
+            
+            ctx.wait(fut);
+        });
+
+        if let Ok(mut handles) = self.subscription_handles.lock() {
+            handles.insert("global".to_string(), handle);
+        }
+    }
+
+    fn handle_server_subscription(
+        &mut self,
+        server_id: &str,
+        ctx: &mut ws::WebsocketContext<Self>
+    ) {
+        // Cancel existing subscription if any
+        if let Ok(handles) = self.subscription_handles.lock() {
+            if let Some(handle) = handles.get(server_id) {
+                ctx.cancel_future(*handle);
+            }
+        }
+
+        self.server_id = Some(server_id.to_string());
+        let monitoring_service = self.monitoring_service.clone();
+        let server_id_owned = server_id.to_string();
+
+        let handle = ctx.run_interval(Duration::from_secs(1), move |actor, ctx| {
+            let monitoring = monitoring_service.clone();
+            let server_id = server_id_owned.clone();
+            
+            let fut = async move {
+                if let Some(metrics) = monitoring.get_server_metrics(&server_id).await {
+                    let message = json!({
+                        "type": "server_metrics",
+                        "server_id": server_id,
+                        "data": metrics
+                    });
+                    message.to_string()
+                } else {
+                    "".to_string()
+                }
+            }
+            .into_actor(actor)
+            .map(|result, _, ctx| {
+                if !result.is_empty() {
+                    ctx.text(result);
+                }
+            });
+            
+            ctx.wait(fut);
+        });
+
+        // Save handle
+        if let Ok(mut handles) = self.subscription_handles.lock() {
+            handles.insert(server_id.to_string(), handle);
+        }
+    }
 }
 
 impl Actor for WebSocketConnection {
     type Context = ws::WebsocketContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        self.heartbeat(ctx);
-        
-        // Set up metrics stream
-        let (_tx, mut rx) = mpsc::channel(32);
-        let addr = ctx.address();
-        
-        tokio::spawn(async move {
-            while let Some(metrics) = rx.recv().await {
-                addr.do_send(metrics);
-            }
-        });
+        self.schedule_heartbeat(ctx);
+        self.start_metrics_stream(ctx);
     }
 }
 
@@ -68,17 +144,26 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketConnecti
                 self.last_heartbeat = Instant::now();
             }
             Ok(ws::Message::Text(text)) => {
-                if let Ok(cmd) = serde_json::from_str::<serde_json::Value>(&text) {
-                    match cmd.get("type").and_then(|t| t.as_str()) {
-                        Some("subscribe") => {
-                            if let Some(server_id) = cmd.get("server_id").and_then(|s| s.as_str()) {
-                                self.server_id = Some(server_id.to_string());
+                if let Ok(command) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if let Some(cmd_type) = command.get("type").and_then(|v| v.as_str()) {
+                        match cmd_type {
+                            "subscribe" => {
+                                if let Some(server_id) = command.get("server_id").and_then(|v| v.as_str()) {
+                                    self.handle_server_subscription(server_id, ctx);
+                                }
                             }
+                            "unsubscribe" => {
+                                if let Some(server_id) = command.get("server_id").and_then(|v| v.as_str()) {
+                                    if let Ok(mut handles) = self.subscription_handles.lock() {
+                                        if let Some(handle) = handles.remove(server_id) {
+                                            ctx.cancel_future(handle);
+                                        }
+                                    }
+                                }
+                                self.server_id = None;
+                            }
+                            _ => {}
                         }
-                        Some("unsubscribe") => {
-                            self.server_id = None;
-                        }
-                        _ => {}
                     }
                 }
             }
@@ -91,12 +176,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketConnecti
     }
 }
 
-// 메시지 타입 정의
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct MetricsMessage(MetricsSnapshot);
+pub struct MetricsMessage(pub MetricsSnapshot);
 
-// Handler 구현
 impl Handler<MetricsMessage> for WebSocketConnection {
     type Result = ();
 

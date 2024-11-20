@@ -1,6 +1,6 @@
 // src/config.rs
 use serde::Deserialize;
-use config::{Config, ConfigError, Environment, File};
+use ::config::{Config, ConfigError, Environment, File};
 
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
@@ -49,7 +49,7 @@ pub struct AlertThresholds {
 
 impl ServerConfig {
     pub fn new() -> Result<Self, ConfigError> {
-        let mut builder = Config::builder()
+        let builder = Config::builder()
             .add_source(File::with_name("config/default"))
             .add_source(File::with_name("config/local").required(false))
             .add_source(Environment::with_prefix("APP"));

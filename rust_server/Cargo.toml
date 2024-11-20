@@ -64,3 +64,5 @@ sysinfo = "0.29"
 # OpenAPI/Swagger
 utoipa = { version = "4.1", features = ["actix_extras"] }
 utoipa-swagger-ui = { version = "5.0", features = ["actix-web"] }
+
+config = "0.13"

@@ -1,3 +1,7 @@
+// src/tests/db_test.rs
+
+use rust_server::db;
+
 #[cfg(test)]
 mod tests {
     use crate::db::{create_pool, test_connection};
