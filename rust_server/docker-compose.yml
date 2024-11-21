@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   timescaledb:
@@ -21,7 +21,7 @@ services:
   rust_server:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     volumes:
@@ -40,5 +40,5 @@ services:
 
 volumes:
   timescaledb_data:
-  cargo_cache:
-  target_cache:
+  cargo_cache:    # Rust 캐시 저장소
+  target_cache:   # Rust 빌드 결과 저장소

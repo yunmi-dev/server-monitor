@@ -93,12 +93,6 @@ impl_common_traits!(UserRole, {
     Viewer => "viewer"
 });
 
-// models.rs
-impl From<Option<ServerType>> for ServerType {
-    fn from(opt: Option<ServerType>) -> Self {
-        opt.unwrap_or(ServerType::Virtual)  // 기본값 설정
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Server {

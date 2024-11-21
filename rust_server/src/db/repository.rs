@@ -1,6 +1,4 @@
 // server/src/db/repository.rs
-
-
 use chrono::{DateTime, Utc};
 use sqlx::types::JsonValue;
 use super::models::*;
@@ -23,17 +21,18 @@ impl Repository {
             r#"
             INSERT INTO servers 
             (id, name, hostname, ip_address, location, server_type, is_online, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            RETURNING id, name, hostname, ip_address, location,
-                      server_type as "server_type: ServerType",
-                      is_online, created_at, updated_at
+            VALUES ($1, $2, $3, $4, $5, $6::text::server_type, $7, $8, $9)
+            RETURNING 
+                id, name, hostname, ip_address, location,
+                server_type as "server_type: ServerType", 
+                is_online, created_at, updated_at
             "#,
             server.id,
             server.name,
             server.hostname,
             server.ip_address,
             server.location,
-            server.server_type as ServerType,
+            server.server_type.to_string(),
             server.is_online,
             server.created_at,
             server.updated_at,
@@ -42,6 +41,43 @@ impl Repository {
         .await?;
     
         Ok(result)
+    }
+    
+    pub async fn get_server(&self, id: &str) -> Result<Option<Server>> {
+        let result = sqlx::query_as!(
+            Server,
+            r#"
+            SELECT 
+                id, name, hostname, ip_address, location,
+                server_type as "server_type: ServerType",
+                is_online, created_at, updated_at
+            FROM servers 
+            WHERE id = $1
+            "#,
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+    
+        Ok(result)
+    }
+    
+    pub async fn list_servers(&self) -> Result<Vec<Server>> {
+        let results = sqlx::query_as!(
+            Server,
+            r#"
+            SELECT 
+                id, name, hostname, ip_address, location,
+                server_type as "server_type: ServerType",
+                is_online, created_at, updated_at
+            FROM servers 
+            ORDER BY created_at DESC
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+    
+        Ok(results)
     }
 
     pub async fn save_metrics(&self, snapshot: MetricsSnapshot) -> Result<i64> {
@@ -93,44 +129,6 @@ impl Repository {
 
         Ok(results)
     }
-
-    pub async fn get_server(&self, id: &str) -> Result<Option<Server>> {
-        let result = sqlx::query_as!(
-            Server,
-            r#"
-            SELECT 
-                id, name, hostname, ip_address, location,
-                server_type as "server_type: ServerType",
-                is_online, created_at, updated_at
-            FROM servers 
-            WHERE id = $1
-            "#,
-            id
-        )
-        .fetch_optional(&self.pool)
-        .await?;
-    
-        Ok(result)
-    }
-
-    pub async fn list_servers(&self) -> Result<Vec<Server>> {
-        let results = sqlx::query_as!(
-            Server,
-            r#"
-            SELECT 
-                id, name, hostname, ip_address, location,
-                server_type as "server_type: ServerType",
-                is_online, created_at, updated_at
-            FROM servers 
-            ORDER BY created_at DESC
-            "#
-        )
-        .fetch_all(&self.pool)
-        .await?;
-    
-        Ok(results)
-    }
-
 
     pub async fn create_alert(&self, alert: Alert) -> Result<Alert> {
         let result = sqlx::query_as!(
@@ -230,19 +228,23 @@ impl Repository {
 
 
     pub async fn acknowledge_alert(&self, alert_id: i64) -> Result<()> {
-        sqlx::query!(
+        sqlx::query_as!(
+            Alert,
             r#"
             UPDATE alerts
             SET acknowledged_at = $1, acknowledged_by = $2
             WHERE id = $3
+            RETURNING id, server_id, alert_type, 
+                      severity as "severity: AlertSeverity",
+                      message, created_at, acknowledged_at, acknowledged_by
             "#,
             Utc::now(),
-            None::<String>,  // acknowledged_by는 나중에 인증 시스템과 연동
+            Option::<String>::None,  // acknowledged_by
             alert_id
         )
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await?;
-
+    
         Ok(())
     }
 

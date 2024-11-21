@@ -1,5 +1,8 @@
-# Production Dockerfile
-FROM rust:1.75-slim-bookworm as builder
+# Dockerfile.dev for development environment
+FROM rust:1.82-slim-bookworm
+
+# Set CARGO_HOME for caching
+ENV CARGO_HOME=/usr/local/cargo
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -7,33 +10,14 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libpq-dev \
     build-essential \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
-# Copy the entire project
-COPY . .
+# Install latest version of cargo-watch
+RUN cargo install cargo-watch --version=8.1.2 --locked
+RUN cargo install sqlx-cli --no-default-features --features postgres
 
-# Build the application
-RUN cargo build --release
-
-# Runtime stage
-FROM debian:bookworm-slim
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    libpq5 \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy the built binary
-COPY --from=builder /usr/src/app/target/release/rust_server /usr/local/bin/
-COPY --from=builder /usr/src/app/migrations /migrations
-
-# Create a non-root user
-RUN useradd -m appuser
-USER appuser
-
-EXPOSE 8080
-
-CMD ["rust_server"]
+# Default command for development
+CMD ["cargo", "watch", "-x", "run"]
