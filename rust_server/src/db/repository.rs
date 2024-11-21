@@ -30,10 +30,11 @@ impl Repository {
             server.hostname,
             server.ip_address,
             server.location,
-            server.server_type.to_string(),
+            // server.server_type.to_string(),
             server.is_online,
             server.created_at,
-            server.updated_at
+            server.updated_at,
+            server.server_type,
         )
         .fetch_one(&self.pool)
         .await?;

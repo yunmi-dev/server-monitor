@@ -8,8 +8,8 @@ CREATE TABLE users (
     id VARCHAR(36) PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    role user_role NOT NULL DEFAULT 'user',
+    "name" VARCHAR(255) NOT NULL,
+    "role" user_role NOT NULL DEFAULT 'user',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -17,10 +17,10 @@ CREATE TABLE users (
 -- Then servers table
 CREATE TABLE servers (
     id VARCHAR(36) PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    "name" VARCHAR(255) NOT NULL,
     hostname VARCHAR(255) NOT NULL,
     ip_address VARCHAR(45) NOT NULL,
-    location VARCHAR(255) NOT NULL,
+    "location" VARCHAR(255) NOT NULL,
     server_type server_type NOT NULL,
     is_online BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -31,13 +31,13 @@ CREATE TABLE servers (
 CREATE TABLE metrics_snapshots (
     id BIGSERIAL PRIMARY KEY,
     server_id VARCHAR(36) NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
-    cpu_usage FLOAT NOT NULL,
-    memory_usage FLOAT NOT NULL,
-    disk_usage FLOAT NOT NULL,
+    cpu_usage DOUBLE PRECISION NOT NULL,
+    memory_usage DOUBLE PRECISION NOT NULL,
+    disk_usage DOUBLE PRECISION NOT NULL,
     network_rx BIGINT NOT NULL,
     network_tx BIGINT NOT NULL,
     processes JSONB NOT NULL,
-    timestamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "timestamp" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT metrics_cpu_usage_check CHECK (cpu_usage >= 0 AND cpu_usage <= 100),
     CONSTRAINT metrics_memory_usage_check CHECK (memory_usage >= 0 AND memory_usage <= 100),
     CONSTRAINT metrics_disk_usage_check CHECK (disk_usage >= 0 AND disk_usage <= 100)
@@ -49,7 +49,7 @@ CREATE TABLE alerts (
     server_id VARCHAR(36) NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
     alert_type VARCHAR(50) NOT NULL,
     severity alert_severity NOT NULL,
-    message TEXT NOT NULL,
+    "message" TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     acknowledged_at TIMESTAMPTZ,
     acknowledged_by VARCHAR(36) REFERENCES users(id)

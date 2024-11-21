@@ -12,7 +12,7 @@ ALTER TABLE alert_thresholds ALTER COLUMN server_id TYPE TEXT;
 -- Recreate metrics_snapshots table with TimescaleDB optimized structure
 CREATE TABLE metrics_snapshots (
     id BIGSERIAL,
-    timestamp TIMESTAMPTZ NOT NULL,
+    "timestamp" TIMESTAMPTZ NOT NULL,
     server_id TEXT NOT NULL,
     cpu_usage FLOAT NOT NULL,
     memory_usage FLOAT NOT NULL,
