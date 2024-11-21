@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    environment:
+      POSTGRES_DB: flickdb
+      POSTGRES_USER: flickuser
+      POSTGRES_PASSWORD: flickpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flickuser -d flickdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rust_server:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/usr/src/app
+      - cargo_cache:/usr/local/cargo/registry
+      - target_cache:/usr/src/app/target
+    environment:
+      DATABASE_URL: "postgres://flickuser:flickpass@timescaledb:5432/flickdb"
+      RUST_LOG: "debug"
+      RUST_BACKTRACE: 1
+      JWT_SECRET: "your-development-secret-key"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    command: cargo watch -x run
+
+volumes:
+  timescaledb_data:
+  cargo_cache:
+  target_cache:

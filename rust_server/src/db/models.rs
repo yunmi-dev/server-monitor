@@ -2,17 +2,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
-use std::str::FromStr;
 use std::fmt::Display;
+use std::str::FromStr;
 
-macro_rules! implement_enum {
-    ($name:ident { $($variant:ident => $str:expr),* $(,)* }) => {
-        #[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
-        #[sqlx(rename_all = "lowercase")]
-        pub enum $name {
-            $($variant),*
-        }
-
+// Common traits implementation macro
+macro_rules! impl_common_traits {
+    ($name:ident, { $($variant:ident => $str:expr),* $(,)* }) => {
         impl $name {
             pub fn as_ref(&self) -> &str {
                 match self {
@@ -40,10 +35,7 @@ macro_rules! implement_enum {
 
         impl From<&str> for $name {
             fn from(s: &str) -> Self {
-                match s.to_lowercase().as_str() {
-                    $($str => Self::$variant,)*
-                    _ => panic!("Invalid {} value: {}", stringify!($name), s)
-                }
+                Self::from_str(s).unwrap_or_else(|e| panic!("{}", e))
             }
         }
 
@@ -55,25 +47,58 @@ macro_rules! implement_enum {
     };
 }
 
-// Enum definitions
-implement_enum!(ServerType {
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
+#[sqlx(type_name = "server_type")]
+#[sqlx(rename_all = "lowercase")]
+pub enum ServerType {
+    Physical,
+    Virtual,
+    Container,
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
+#[sqlx(type_name = "alert_severity")]
+#[sqlx(rename_all = "lowercase")]
+pub enum AlertSeverity {
+    Info,
+    Warning,
+    Critical,
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
+#[sqlx(type_name = "user_role")]
+#[sqlx(rename_all = "lowercase")]
+pub enum UserRole {
+    Admin,
+    User,
+    Viewer,
+}
+
+// Implement the common traits for each enum
+impl_common_traits!(ServerType, {
     Physical => "physical",
     Virtual => "virtual",
     Container => "container"
 });
 
-implement_enum!(AlertSeverity {
+impl_common_traits!(AlertSeverity, {
     Info => "info",
     Warning => "warning",
     Critical => "critical"
 });
 
-implement_enum!(UserRole {
+impl_common_traits!(UserRole, {
     Admin => "admin",
     User => "user",
     Viewer => "viewer"
 });
 
+// models.rs
+impl From<Option<ServerType>> for ServerType {
+    fn from(opt: Option<ServerType>) -> Self {
+        opt.unwrap_or(ServerType::Virtual)  // 기본값 설정
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Server {
@@ -82,6 +107,7 @@ pub struct Server {
     pub hostname: String,
     pub ip_address: String,
     pub location: String,
+    #[sqlx(rename = "server_type")]
     pub server_type: ServerType,
     pub is_online: bool,
     pub created_at: DateTime<Utc>,
@@ -106,6 +132,7 @@ pub struct Alert {
     pub id: i64,
     pub server_id: String,
     pub alert_type: String,
+    #[sqlx(rename = "severity")]
     pub severity: AlertSeverity,
     pub message: String,
     pub created_at: DateTime<Utc>,
@@ -119,6 +146,7 @@ pub struct User {
     pub email: String,
     pub password_hash: String,
     pub name: String,
+    #[sqlx(rename = "role")]
     pub role: UserRole,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

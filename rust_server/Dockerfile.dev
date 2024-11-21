@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /usr/src/app
 
-# Install specific version of cargo-watch compatible with Rust 1.74
-RUN cargo install cargo-watch --version=8.0.0
+# Install latest version of cargo-watch
+RUN cargo install cargo-watch
 
 # Default command for development
 CMD ["cargo", "watch", "-x", "run"]
