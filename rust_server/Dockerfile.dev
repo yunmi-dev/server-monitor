@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /usr/src/app
 
 # Install latest version of cargo-watch
-RUN cargo install cargo-watch
+RUN cargo install cargo-watch --version=8.4.1
 
 # Default command for development
 CMD ["cargo", "watch", "-x", "run"]
