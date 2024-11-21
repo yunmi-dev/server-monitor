@@ -1,5 +1,5 @@
 # Dockerfile.dev for development environment
-FROM rust:1.75-slim-bookworm
+FROM rust:1.74-slim-bookworm
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /usr/src/app
 
-# Install cargo watch for development
-RUN cargo install cargo-watch
+# Install specific version of cargo-watch compatible with Rust 1.74
+RUN cargo install cargo-watch --version=8.0.0
 
 # Default command for development
 CMD ["cargo", "watch", "-x", "run"]

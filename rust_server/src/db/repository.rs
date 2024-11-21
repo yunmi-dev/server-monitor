@@ -51,7 +51,7 @@ impl Repository {
                 hostname as "hostname!",
                 ip_address as "ip_address!",
                 location as "location!",
-                server_type as "server_type!: _",
+                server_type as "server_type",
                 is_online as "is_online!",
                 created_at as "created_at!",
                 updated_at as "updated_at!"
@@ -76,7 +76,7 @@ impl Repository {
                 hostname as "hostname!",
                 ip_address as "ip_address!",
                 location as "location!",
-                server_type as "server_type!: _",
+                server_type as "server_type",
                 is_online as "is_online!",
                 created_at as "created_at!",
                 updated_at as "updated_at!"
