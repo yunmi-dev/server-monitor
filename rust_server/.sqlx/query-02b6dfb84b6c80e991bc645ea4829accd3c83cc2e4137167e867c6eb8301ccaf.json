@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO alerts \n            (server_id, alert_type, severity, message, created_at, acknowledged_at, acknowledged_by)\n            VALUES ($1, $2, $3, $4, $5, $6, $7)\n            RETURNING id, server_id, alert_type, \n                      severity as \"severity: AlertSeverity\", \n                      message, created_at, acknowledged_at, acknowledged_by\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "server_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "alert_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "severity: AlertSeverity",
+        "type_info": {
+          "Custom": {
+            "name": "alert_severity",
+            "kind": {
+              "Enum": [
+                "info",
+                "warning",
+                "critical"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "message",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "acknowledged_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "acknowledged_by",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        {
+          "Custom": {
+            "name": "alert_severity",
+            "kind": {
+              "Enum": [
+                "info",
+                "warning",
+                "critical"
+              ]
+            }
+          }
+        },
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "02b6dfb84b6c80e991bc645ea4829accd3c83cc2e4137167e867c6eb8301ccaf"
+}
