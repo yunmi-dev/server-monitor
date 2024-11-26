@@ -3,3 +3,7 @@
 !.env.example
 /target
 # Cargo.lock
+
+# .sqlx 디렉토리는 포함
+!.sqlx/
+!.sqlx/**/*
