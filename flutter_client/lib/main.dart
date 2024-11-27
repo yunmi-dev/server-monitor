@@ -2,33 +2,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'app.dart';
-import 'config/constants.dart';
-import 'services/api_service.dart';
-import 'services/auth_service.dart';
-import 'providers/auth_provider.dart';
-import 'providers/server_provider.dart';
-import 'providers/settings_provider.dart';
+import 'package:flutter_client/app.dart';
+import 'package:flutter_client/config/constants.dart';
+import 'package:flutter_client/services/api_service.dart';
+import 'package:flutter_client/services/auth_service.dart' hide AuthProvider;
+import 'package:flutter_client/providers/auth_provider.dart';
+import 'package:flutter_client/providers/server_provider.dart';
+import 'package:flutter_client/providers/settings_provider.dart';
 import 'package:flutter_client/services/storage_service.dart';
-import 'providers/theme_provider.dart';
+import 'package:flutter_client/providers/theme_provider.dart';
 import 'package:flutter_client/services/log_service.dart';
-import 'providers/log_provider.dart';
-
-import 'services/log_service.dart';
-import 'providers/log_provider.dart';
+import 'package:flutter_client/providers/log_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 시스템 UI 설정
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
+  // 화면 방향 고정
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // 서비스 초기화
   final storageService = await StorageService.initialize();
@@ -39,6 +32,7 @@ void main() async {
   );
   final logService = LogService(apiService: apiService);
 
+  // 프로바이더 설정 및 앱 실행
   runApp(
     MultiProvider(
       providers: [
@@ -46,18 +40,18 @@ void main() async {
           create: (_) => ThemeProvider(storageService),
         ),
         ChangeNotifierProvider(
-          create: (_) => AuthProvider(
-            authService: authService,
-            storageService: storageService,
-          ),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => ServerProvider(apiService),
-        ),
-        ChangeNotifierProvider(
           create: (_) => SettingsProvider(storageService),
         ),
-        // 로그 관련 Provider 추가
+        ChangeNotifierProvider<AuthProvider>(
+          // 명시적 타입 추가
+          create: (context) => AuthProvider(
+            authService: authService,
+            storageService: storageService,
+          )..initialize(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => ServerProvider(apiService: apiService),
+        ),
         Provider<LogService>(
           create: (_) => logService,
         ),

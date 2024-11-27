@@ -9,7 +9,7 @@ services:
     privileged: true
     user: root
     ports:
-      - "8082:8080"
+      - "8083:8080"
       - "50001:50000"  # Jenkins slave port # 로컬에서 포트 충돌로 인해 변경
     volumes:
       - jenkins_home:/var/jenkins_home

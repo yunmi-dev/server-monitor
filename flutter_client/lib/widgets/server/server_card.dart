@@ -7,7 +7,6 @@ import 'package:flutter_client/utils/number_utils.dart';
 import 'package:flutter_client/models/time_series_data.dart';
 import 'package:flutter_client/models/log_entry.dart';
 
-// lib/widgets/server/server_card.dart
 class ServerCard extends StatelessWidget {
   final Server server;
   final VoidCallback? onTap;

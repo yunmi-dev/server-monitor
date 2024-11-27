@@ -1,28 +1,40 @@
 // lib/app.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'config/theme.dart';
-import 'config/routes.dart';
-import 'providers/auth_provider.dart';
-import 'screens/splash_screen.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/dashboard/dashboard_screen.dart';
-import 'providers/server_provider.dart';
-import 'config/constants.dart';
-import 'providers/theme_provider.dart';
+import 'package:flutter_client/config/theme.dart';
+import 'package:flutter_client/config/routes.dart';
+import 'package:flutter_client/providers/auth_provider.dart';
+import 'package:flutter_client/screens/splash_screen.dart';
+import 'package:flutter_client/screens/auth/login_screen.dart';
+import 'package:flutter_client/screens/dashboard/dashboard_screen.dart';
+import 'package:flutter_client/providers/server_provider.dart';
+import 'package:flutter_client/config/constants.dart';
+import 'package:flutter_client/providers/theme_provider.dart';
+import 'package:flutter_client/services/navigation_service.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // 시스템 UI 오버레이 스타일 설정
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         return MaterialApp(
           title: 'FLick',
-          theme: AppTheme.darkTheme(),
-          themeMode: themeProvider.themeMode,
+          theme: AppTheme.darkTheme(), // 항상 다크 테마 사용
           debugShowCheckedModeBanner: false,
+          navigatorKey: NavigationService.navigatorKey,
           home: const AppNavigator(),
           onGenerateRoute: AppRoutes.onGenerateRoute,
           builder: (context, child) {
@@ -58,10 +70,7 @@ class AppNavigator extends StatelessWidget {
 class _AppWrapper extends StatelessWidget {
   final Widget child;
 
-  const _AppWrapper({
-    super.key,
-    required this.child,
-  });
+  const _AppWrapper({required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +88,10 @@ class _AppWrapper extends StatelessWidget {
   Widget _buildNetworkStatusBar(BuildContext context) {
     return Consumer<ServerProvider>(
       builder: (context, provider, _) {
-        if (!provider.hasNetworkError) return const SizedBox.shrink();
+        // 네트워크 오류 검사 로직 개선
+        final hasNetworkError =
+            provider.error?.toLowerCase().contains('network') ?? false;
+        if (!hasNetworkError) return const SizedBox.shrink();
 
         return Positioned(
           top: 0,
@@ -110,7 +122,7 @@ class _AppWrapper extends StatelessWidget {
                         color: Colors.white,
                       ),
                       onPressed: () {
-                        provider.retryConnections();
+                        provider.refreshAll();
                       },
                     ),
                   ],

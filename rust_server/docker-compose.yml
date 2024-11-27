@@ -42,27 +42,27 @@ services:
     networks:
       - flick_network
 
-  jenkins:
-    image: jenkins/jenkins:lts
-    privileged: true
-    user: root
-    ports:
-      - "8082:8080"  # 8080은 rust_server가 사용중이므로 8081 사용 -> 로컬에서 포트 충돌로 인해 8082로 변경
-      - "50001:50000" # 실제 배포할땐 8080, 50000 사용
-    volumes:
-      - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-      - cargo_cache:/usr/local/cargo/registry  # Rust 캐시 공유
-    environment:
-      - DOCKER_HOST=unix:///var/run/docker.sock
-      - RUST_VERSION=1.82  # Rust 버전 명시
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - flick_network
+  # jenkins:
+  #   image: jenkins/jenkins:lts
+  #   privileged: true
+  #   user: root
+  #   ports:
+  #     - "8081:8080"  # 8080은 rust_server가 사용중이므로 8081 사용 -> 로컬에서 포트 충돌로 인해 8082로 변경
+  #     - "50001:50000" # 실제 배포할땐 8080, 50000 사용
+  #   volumes:
+  #     - jenkins_home:/var/jenkins_home
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - cargo_cache:/usr/local/cargo/registry  # Rust 캐시 공유
+  #   environment:
+  #     - DOCKER_HOST=unix:///var/run/docker.sock
+  #     - RUST_VERSION=1.82  # Rust 버전 명시
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   networks:
+  #     - flick_network
 
 volumes:
   timescaledb_data:
