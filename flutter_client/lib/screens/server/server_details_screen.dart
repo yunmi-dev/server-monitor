@@ -109,9 +109,13 @@ class _ServerDetailsScreenState extends State<ServerDetailsScreen> {
                 const SizedBox(height: 24),
                 _buildResourceGauges(),
                 const SizedBox(height: 24),
+                _buildSystemInfo(), // 추가
+                const SizedBox(height: 24),
                 _buildTimeRangeSelector(),
                 const SizedBox(height: 16),
                 _buildMetricsCharts(),
+                const SizedBox(height: 24),
+                _buildNetworkMonitoring(), // 추가
                 const SizedBox(height: 24),
                 _buildProcessList(),
                 const SizedBox(height: 24),
@@ -627,43 +631,6 @@ class _ServerDetailsScreenState extends State<ServerDetailsScreen> {
             style: const TextStyle(color: Colors.white),
           ),
         ],
-      ),
-    );
-  }
-
-// build 메서드에 새로운 섹션들 추가
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      // ... 기존 코드 유지 ...
-      body: RefreshIndicator(
-        onRefresh: () =>
-            context.read<ServerProvider>().refreshServerData(widget.serverId),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildServerInfo(),
-                const SizedBox(height: 24),
-                _buildResourceGauges(),
-                const SizedBox(height: 24),
-                _buildSystemInfo(), // 추가
-                const SizedBox(height: 24),
-                _buildTimeRangeSelector(),
-                const SizedBox(height: 16),
-                _buildMetricsCharts(),
-                const SizedBox(height: 24),
-                _buildNetworkMonitoring(), // 추가
-                const SizedBox(height: 24),
-                _buildProcessList(),
-                const SizedBox(height: 24),
-                _buildRecentLogs(),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -9,6 +9,13 @@ import 'services/auth_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/server_provider.dart';
 import 'providers/settings_provider.dart';
+import 'package:flutter_client/services/storage_service.dart';
+import 'providers/theme_provider.dart';
+import 'package:flutter_client/services/log_service.dart';
+import 'providers/log_provider.dart';
+
+import 'services/log_service.dart';
+import 'providers/log_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +37,7 @@ void main() async {
     apiService: apiService,
     storageService: storageService,
   );
+  final logService = LogService(apiService: apiService);
 
   runApp(
     MultiProvider(
@@ -48,6 +56,15 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => SettingsProvider(storageService),
+        ),
+        // 로그 관련 Provider 추가
+        Provider<LogService>(
+          create: (_) => logService,
+        ),
+        ChangeNotifierProvider(
+          create: (context) => LogProvider(
+            logService: logService,
+          ),
         ),
       ],
       child: const App(),

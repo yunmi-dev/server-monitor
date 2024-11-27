@@ -264,4 +264,118 @@ impl Repository {
 
         Ok(())
     }
+
+
+    pub async fn create_log(&self, log: LogEntry) -> Result<LogEntry, sqlx::Error> {
+        sqlx::query_as!(
+            LogEntry,
+            r#"
+            INSERT INTO logs (
+                id, level, message, component, server_id, timestamp,
+                metadata, stack_trace, source_location, correlation_id
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING *
+            "#,
+            log.id,
+            log.level as LogLevel,
+            log.message,
+            log.component,
+            log.server_id,
+            log.timestamp,
+            log.metadata as Option<serde_json::Value>,
+            log.stack_trace,
+            log.source_location,
+            log.correlation_id,
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn get_logs(&self, filter: LogFilter) -> Result<Vec<LogEntry>, sqlx::Error> {
+        let mut query = sqlx::QueryBuilder::new(
+            "SELECT * FROM logs WHERE true"
+        );
+
+        if let Some(levels) = filter.levels {
+            query.push(" AND level = ANY(");
+            query.push_bind(levels);
+            query.push(")");
+        }
+
+        if let Some(from) = filter.from {
+            query.push(" AND timestamp >= ");
+            query.push_bind(from);
+        }
+
+        if let Some(to) = filter.to {
+            query.push(" AND timestamp <= ");
+            query.push_bind(to);
+        }
+
+        if let Some(server_id) = filter.server_id {
+            query.push(" AND server_id = ");
+            query.push_bind(server_id);
+        }
+
+        if let Some(component) = filter.component {
+            query.push(" AND component = ");
+            query.push_bind(component);
+        }
+
+        if let Some(search) = filter.search {
+            query.push(" AND message_tsv @@ to_tsquery(");
+            query.push_bind(format!("{}:*", search));
+            query.push(")");
+        }
+
+        query.push(" ORDER BY timestamp DESC");
+
+        if let Some(limit) = filter.limit {
+            query.push(" LIMIT ");
+            query.push_bind(limit);
+        }
+
+        if let Some(offset) = filter.offset {
+            query.push(" OFFSET ");
+            query.push_bind(offset);
+        }
+
+        query.build_query_as::<LogEntry>()
+            .fetch_all(&self.pool)
+            .await
+    }
+
+    pub async fn get_log(&self, id: &str) -> Result<Option<LogEntry>, sqlx::Error> {
+        sqlx::query_as!(
+            LogEntry,
+            "SELECT * FROM logs WHERE id = $1",
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn delete_logs(&self, filter: LogFilter) -> Result<i64, sqlx::Error> {
+        let mut query = sqlx::QueryBuilder::new("DELETE FROM logs WHERE true");
+
+        // 필터 조건 추가
+        if let Some(from) = filter.from {
+            query.push(" AND timestamp >= ");
+            query.push_bind(from);
+        }
+
+        if let Some(to) = filter.to {
+            query.push(" AND timestamp <= ");
+            query.push_bind(to);
+        }
+
+        query.push(" RETURNING 1");
+
+        let deleted = query.build()
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(deleted.len() as i64)
+    }
 }

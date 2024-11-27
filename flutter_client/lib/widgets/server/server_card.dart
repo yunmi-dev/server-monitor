@@ -5,6 +5,7 @@ import 'package:flutter_client/models/server.dart';
 import 'package:flutter_client/widgets/charts/mini_chart.dart';
 import 'package:flutter_client/utils/number_utils.dart';
 import 'package:flutter_client/models/time_series_data.dart';
+import 'package:flutter_client/models/log_entry.dart';
 
 // lib/widgets/server/server_card.dart
 class ServerCard extends StatelessWidget {
@@ -177,6 +178,7 @@ class ServerCard extends StatelessWidget {
   }
 
   Widget _buildMetrics(BuildContext context) {
+    final network = server.resources.network;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
@@ -195,10 +197,11 @@ class ServerCard extends StatelessWidget {
           value: '${server.resources.disk.toStringAsFixed(1)}%',
           color: Colors.purple,
         ),
-        if (showDetailedStats && server.resources.network != null)
+        if (network != null && network.isNotEmpty) // null 체크와 빈 문자열 체크
           _MetricItem(
             label: 'Network',
-            value: NumberUtils.formatBandwidth(server.resources.network!),
+            value: NumberUtils.formatBandwidth(
+                double.parse(network)), // 이미 String이므로 변환 불필요
             color: Colors.orange,
           ),
       ],

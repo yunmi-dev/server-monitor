@@ -11,6 +11,7 @@ _$UserImpl _$$UserImplFromJson(Map<String, dynamic> json) => _$UserImpl(
       name: json['name'] as String,
       email: json['email'] as String,
       profileImage: json['profileImage'] as String?,
+      profileUrl: json['profileUrl'] as String?,
       isEmailVerified: json['isEmailVerified'] as bool? ?? false,
       lastLoginAt: json['lastLoginAt'] == null
           ? null
@@ -26,6 +27,7 @@ Map<String, dynamic> _$$UserImplToJson(_$UserImpl instance) =>
       'name': instance.name,
       'email': instance.email,
       'profileImage': instance.profileImage,
+      'profileUrl': instance.profileUrl,
       'isEmailVerified': instance.isEmailVerified,
       'lastLoginAt': instance.lastLoginAt?.toIso8601String(),
       'createdAt': instance.createdAt.toIso8601String(),

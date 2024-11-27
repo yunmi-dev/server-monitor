@@ -20,11 +20,10 @@ ResourceUsage _$ResourceUsageFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$ResourceUsage {
-  double get cpu => throw _privateConstructorUsedError; // percentage
-  double get memory => throw _privateConstructorUsedError; // percentage
-  double get disk => throw _privateConstructorUsedError; // percentage
-  String get network =>
-      throw _privateConstructorUsedError; // formatted string (e.g., "1.2 MB/s")
+  double get cpu => throw _privateConstructorUsedError;
+  double get memory => throw _privateConstructorUsedError;
+  double get disk => throw _privateConstructorUsedError;
+  String get network => throw _privateConstructorUsedError;
   List<TimeSeriesData> get history => throw _privateConstructorUsedError;
   DateTime? get lastUpdated => throw _privateConstructorUsedError;
 
@@ -188,18 +187,13 @@ class _$ResourceUsageImpl extends _ResourceUsage {
 
   @override
   final double cpu;
-// percentage
   @override
   final double memory;
-// percentage
   @override
   final double disk;
-// percentage
   @override
   final String network;
-// formatted string (e.g., "1.2 MB/s")
   final List<TimeSeriesData> _history;
-// formatted string (e.g., "1.2 MB/s")
   @override
   @JsonKey()
   List<TimeSeriesData> get history {
@@ -265,13 +259,13 @@ abstract class _ResourceUsage extends ResourceUsage {
       _$ResourceUsageImpl.fromJson;
 
   @override
-  double get cpu; // percentage
+  double get cpu;
   @override
-  double get memory; // percentage
+  double get memory;
   @override
-  double get disk; // percentage
+  double get disk;
   @override
-  String get network; // formatted string (e.g., "1.2 MB/s")
+  String get network;
   @override
   List<TimeSeriesData> get history;
   @override

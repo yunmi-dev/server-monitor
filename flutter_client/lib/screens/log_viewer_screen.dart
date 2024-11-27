@@ -1,255 +1,231 @@
 // lib/screens/log_viewer_screen.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_client/models/log_entry.dart';
+import 'package:flutter_client/models/log_filter.dart';
+import 'package:flutter_client/providers/log_provider.dart';
 import 'package:flutter_client/widgets/logs/log_filter_chip.dart';
 import 'package:flutter_client/widgets/logs/log_entry_card.dart';
+import 'package:flutter_client/widgets/logs/log_filter_sheet.dart';
 
-// lib/screens/log_viewer_screen.dart
-class LogViewerScreen extends StatelessWidget {
+class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: const Text('Log Viewer'),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'filter',
-                child: Text('Filter'),
-              ),
-              const PopupMenuItem(
-                value: 'export',
-                child: Text('Export'),
-              ),
-              const PopupMenuItem(
-                value: 'clear',
-                child: Text('Clear Logs'),
-              ),
-            ],
-            onSelected: (value) {
-              // Handle menu actions
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildLogFilters(),
-          Expanded(
-            child: _buildLogList(),
-          ),
-        ],
+  State<LogViewerScreen> createState() => _LogViewerScreenState();
+}
+
+class _LogViewerScreenState extends State<LogViewerScreen> {
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+  bool _isSearching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeScreen();
+    _setupScrollListener();
+  }
+
+  void _initializeScreen() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<LogProvider>().loadLogs(
+            filter: const LogFilter(
+              levels: [LogLevel.error, LogLevel.warning, LogLevel.info],
+            ),
+          );
+    });
+  }
+
+  void _setupScrollListener() {
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent - 200 &&
+          !context.read<LogProvider>().isLoading &&
+          context.read<LogProvider>().hasMore) {
+        _loadMoreLogs();
+      }
+    });
+  }
+
+  Future<void> _loadMoreLogs() async {
+    final provider = context.read<LogProvider>();
+    final currentFilter = provider.currentFilter;
+    await provider.loadLogs(
+      filter: currentFilter.copyWith(
+        offset: currentFilter.offset + currentFilter.limit,
       ),
     );
   }
 
-  Widget _buildLogFilters() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: const Column(
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+  Future<void> _handleRefresh() async {
+    final provider = context.read<LogProvider>();
+    await provider.loadLogs(
+      filter: provider.currentFilter.copyWith(offset: 0),
+    );
+  }
+
+  void _handleSearch(String query) {
+    final provider = context.read<LogProvider>();
+    provider.updateFilter(
+      provider.currentFilter.copyWith(
+        search: query.isEmpty ? null : query,
+        offset: 0,
+      ),
+    );
+  }
+
+  void _showFilterSheet() async {
+    final logProvider = context.read<LogProvider>();
+    final currentFilter = logProvider.currentFilter;
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => LogFilterSheet(
+        selectedLevels: currentFilter.levels?.map((e) => e.name).toSet() ??
+            LogLevel.values.map((e) => e.name).toSet(),
+        startDate: currentFilter.from,
+        endDate: currentFilter.to,
+        additionalFilters: {
+          'component': currentFilter.component,
+          'serverId': currentFilter.serverId,
+        },
+      ),
+    );
+
+    if (result != null && mounted) {
+      final selectedLevels = (result['levels'] as Set<String>)
+          .map((level) => LogLevel.values.firstWhere(
+                (e) => e.name == level,
+                orElse: () => LogLevel.info,
+              ))
+          .toList();
+
+      final newFilter = LogFilter(
+        levels: selectedLevels,
+        from: result['startDate'] as DateTime?,
+        to: result['endDate'] as DateTime?,
+        component: result['additionalFilters']?['component'] as String?,
+        serverId: result['additionalFilters']?['serverId'] as String?,
+        limit: currentFilter.limit,
+      );
+
+      await logProvider.updateFilter(newFilter);
+    }
+  }
+
+  Future<void> _showLogDetail(LogEntry log) async {
+    final levelColor = log.level.color;
+
+    await showDialog(
+      context: context,
+      builder: (context) => Theme(
+        data: Theme.of(context).copyWith(
+          dialogBackgroundColor: const Color(0xFF1E1E1E),
+        ),
+        child: AlertDialog(
+          title: Row(
+            children: [
+              Icon(log.level.icon, color: levelColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  log.component,
+                  style: TextStyle(color: levelColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _FilterButton(
-                  label: 'Error',
-                  color: Colors.red,
-                  selected: true,
+                Text(
+                  '메시지: ${log.message}',
+                  style: const TextStyle(color: Colors.white),
                 ),
-                SizedBox(width: 8),
-                _FilterButton(
-                  label: 'Warning',
-                  color: Colors.orange,
-                  selected: true,
+                const SizedBox(height: 8),
+                Text(
+                  '레벨: ${log.level.label}',
+                  style: const TextStyle(color: Colors.white),
                 ),
-                SizedBox(width: 8),
-                _FilterButton(
-                  label: 'Info',
-                  color: Colors.blue,
-                  selected: true,
+                Text(
+                  '시간: ${log.exactTimestamp}',
+                  style: const TextStyle(color: Colors.white),
                 ),
-                SizedBox(width: 8),
-                _FilterButton(
-                  label: 'Debug',
-                  color: Colors.grey,
-                  selected: false,
-                ),
+                if (log.serverId != null)
+                  Text(
+                    '서버: ${log.serverId}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                if (log.stackTrace != null) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    '스택 트레이스:',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: SelectableText(
+                      log.stackTrace!,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: Colors.grey[300],
+                      ),
+                    ),
+                  ),
+                ],
+                if (log.metadata != null && log.metadata!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    '메타데이터:',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: SelectableText(
+                      const JsonEncoder.withIndent('  ').convert(log.metadata),
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: Colors.grey[300],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          SizedBox(height: 16),
-          SearchBar(
-            hintText: 'Search logs...',
-            leading: Icon(Icons.search),
-            trailing: [Icon(Icons.tune)],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLogList() {
-    return ListView.builder(
-      itemCount: 20,
-      itemBuilder: (context, index) {
-        return _LogItem(
-          timestamp: DateTime.now().subtract(Duration(minutes: index)),
-          level: _getRandomLogLevel(),
-          message: 'Sample log message ${index + 1}',
-          source: 'Server ${(index % 4) + 1}',
-        );
-      },
-    );
-  }
-
-  String _getRandomLogLevel() {
-    const levels = ['ERROR', 'WARNING', 'INFO'];
-    return levels[DateTime.now().microsecond % levels.length];
-  }
-}
-
-class _FilterButton extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool selected;
-
-  const _FilterButton({
-    required this.label,
-    required this.color,
-    required this.selected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (value) {
-        // Update filter
-      },
-      backgroundColor: Colors.transparent,
-      selectedColor: color.withOpacity(0.2),
-      labelStyle: TextStyle(
-        color: selected ? color : Colors.grey,
-      ),
-      side: BorderSide(
-        color: selected ? color : Colors.grey,
-      ),
-      showCheckmark: false,
-    );
-  }
-}
-
-class _LogItem extends StatelessWidget {
-  final DateTime timestamp;
-  final String level;
-  final String message;
-  final String source;
-
-  const _LogItem({
-    required this.timestamp,
-    required this.level,
-    required this.message,
-    required this.source,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _getLevelIcon(),
-              const SizedBox(width: 8),
-              Text(
-                level,
-                style: TextStyle(
-                  color: _getLevelColor(),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _formatTimestamp(),
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('닫기'),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            source,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-
-  Widget _getLevelIcon() {
-    IconData icon;
-    switch (level) {
-      case 'ERROR':
-        icon = Icons.error_outline;
-        break;
-      case 'WARNING':
-        icon = Icons.warning_amber_outlined;
-        break;
-      default:
-        icon = Icons.info_outline;
-    }
-    return Icon(icon, color: _getLevelColor(), size: 16);
-  }
-
-  Color _getLevelColor() {
-    switch (level) {
-      case 'ERROR':
-        return Colors.red;
-      case 'WARNING':
-        return Colors.orange;
-      default:
-        return Colors.blue;
-    }
-  }
-
-  String _formatTimestamp() {
-    return '${timestamp.hour.toString().padLeft(2, '0')}:'
-        '${timestamp.minute.toString().padLeft(2, '0')}:'
-        '${timestamp.second.toString().padLeft(2, '0')}';
-  }
-}
-
-// lib/screens/detail_settings_screen.dart
-class DetailSettingsScreen extends StatelessWidget {
-  const DetailSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -257,167 +233,118 @@ class DetailSettingsScreen extends StatelessWidget {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: const Text('알림 설정'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: '로그 검색...',
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  border: InputBorder.none,
+                ),
+                onChanged: _handleSearch,
+              )
+            : const Text('로그 뷰어'),
+        actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() => _isSearching = !_isSearching);
+              if (!_isSearching) {
+                _searchController.clear();
+                _handleSearch('');
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterSheet,
+          ),
+        ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildSettingGroup(
-            '이메일 알림',
-            [
-              _buildSwitch('알림 활성화', true),
-              _buildThresholdSetting('CPU 사용량 임계값', 80),
-              _buildThresholdSetting('메모리 사용량 임계값', 90),
-              _buildThresholdSetting('디스크 사용량 임계값', 90),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSettingGroup(
-            '알림 설정',
-            [
-              _buildSwitch('다운타임 알림', true),
-              _buildSwitch('에러 알림', true),
-              _buildSwitch('경고 알림', true),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSettingGroup(
-            '모니터링 주기',
-            [
-              _buildDropdownSetting(
-                '데이터 수집 주기',
-                '1분',
-                ['30초', '1분', '5분', '10분'],
+      body: Consumer<LogProvider>(
+        builder: (context, provider, _) {
+          if (provider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    provider.error!,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _handleRefresh,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('다시 시도'),
+                  ),
+                ],
               ),
-              _buildDropdownSetting(
-                '알림 확인 주기',
-                '즉시',
-                ['즉시', '1분', '5분', '10분'],
+            );
+          }
+
+          return Column(
+            children: [
+              LogFilterBar(
+                selectedLevels: provider.currentFilter.levels?.toSet() ??
+                    Set.from(LogLevel.values),
+                onSelectionChanged: (levels) {
+                  provider.updateFilter(
+                    provider.currentFilter.copyWith(
+                      levels: levels.toList(),
+                      offset: 0,
+                    ),
+                  );
+                },
+                logCounts: provider.getLevelCounts(),
+              ),
+              Expanded(
+                child: provider.logs.isEmpty && !provider.isLoading
+                    ? const Center(
+                        child: Text(
+                          '로그가 없습니다.',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _handleRefresh,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          itemCount: provider.logs.length +
+                              (provider.isLoading ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == provider.logs.length) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+
+                            final log = provider.logs[index];
+                            return LogEntryCard(
+                              log: log,
+                              searchQuery: _searchController.text,
+                              onTap: () => _showLogDetail(log),
+                            );
+                          },
+                        ),
+                      ),
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildSettingGroup(String title, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: children,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSwitch(String label, bool value) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: (newValue) {
-              // Update setting
-            },
-            activeColor: Colors.pink,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildThresholdSetting(String label, int value) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Slider(
-            value: value.toDouble(),
-            min: 0,
-            max: 100,
-            divisions: 20,
-            label: '$value%',
-            activeColor: Colors.pink,
-            onChanged: (newValue) {
-              // Update threshold
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDropdownSetting(
-    String label,
-    String value,
-    List<String> options,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
-          DropdownButton<String>(
-            value: value,
-            items: options.map((option) {
-              return DropdownMenuItem(
-                value: option,
-                child: Text(option),
-              );
-            }).toList(),
-            onChanged: (newValue) {
-              // Update setting
-            },
-            dropdownColor: const Color(0xFF1E1E1E),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 }

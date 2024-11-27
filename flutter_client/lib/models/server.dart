@@ -31,6 +31,17 @@ class Server {
     this.type,
   });
 
+  bool get isOnline => status == ServerStatus.online;
+
+  bool get hasWarnings =>
+      status == ServerStatus.warning ||
+      status == ServerStatus.critical ||
+      resources.hasWarning;
+
+  double get cpuUsage => resources.cpu;
+  double get memoryUsage => resources.memory;
+  double get diskUsage => resources.disk;
+
   factory Server.fromJson(Map<String, dynamic> json) {
     return Server(
       id: json['id'],

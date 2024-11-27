@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:animations/animations.dart';
 import 'package:flutter_client/constants/route_paths.dart';
+import 'package:flutter_client/models/server.dart';
 import 'package:flutter_client/screens/auth/login_screen.dart';
 import 'package:flutter_client/screens/auth/signup_screen.dart';
 import 'package:flutter_client/screens/auth/forgot_password_screen.dart';
@@ -11,8 +12,7 @@ import 'package:flutter_client/screens/server/server_list_screen.dart';
 import 'package:flutter_client/screens/server/server_details_screen.dart';
 import 'package:flutter_client/screens/server/server_add_screen.dart';
 import 'package:flutter_client/screens/alerts/alerts_screen.dart';
-import 'package:flutter_client/screens/settings/settings_screen.dart'
-    as settings;
+import 'package:flutter_client/screens/settings/settings_screen.dart';
 import 'package:flutter_client/screens/settings/profile_screen.dart';
 import 'package:flutter_client/screens/settings/notifications_screen.dart';
 import 'package:flutter_client/screens/logs/logs_screen.dart';
@@ -57,16 +57,16 @@ class AppRoutes {
         break;
 
       case RoutePaths.settings:
-        screen = const settings.SettingsScreen();
+        screen = const SettingsScreen(); // 'settings.' 접두사 제거
         break;
 
       // Server Related Routes
       case RoutePaths.serverDetails:
         final args = settings.arguments as Map<String, dynamic>;
-        final server = args['server'] as Server; // Server 모델 사용
+        final server = args['server'] as Server;
         screen = ServerDetailsScreen(
           serverId: server.id,
-          server: server, // Server 객체 전달
+          server: server,
         );
         break;
 

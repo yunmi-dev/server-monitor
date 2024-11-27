@@ -1,6 +1,10 @@
-// lib/screens/dashboard_screen.dart
+// lib/screens/dashboard/dashboard_screen.dart
 import 'package:flutter/material.dart';
-//import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_client/config/constants.dart';
+import 'package:flutter_client/constants/route_paths.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_client/providers/server_provider.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -12,42 +16,61 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         title: const Text('Dashboard'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildServerCategories(),
-          const SizedBox(height: 24),
-          _buildUsageSection(),
-          const SizedBox(height: 24),
-          _buildServerList(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              context.read<ServerProvider>().refreshAll();
+            },
+          ),
         ],
+      ),
+      body: Consumer<ServerProvider>(
+        builder: (context, serverProvider, _) {
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildServerCategories(context, serverProvider),
+              const SizedBox(height: 24),
+              _buildUsageSection(serverProvider),
+              const SizedBox(height: 24),
+              _buildServerList(context, serverProvider),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildServerCategories() {
+  Widget _buildServerCategories(BuildContext context, ServerProvider provider) {
+    final totalServers = provider.servers.length;
+    final atRiskServers = provider.servers.where((s) => s.hasWarnings).length;
+    final safeServers = totalServers - atRiskServers;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildCategoryItem(
+          context,
           'Total Servers',
-          '14',
-          [12, 13, 14, 14, 14],
+          totalServers.toString(),
+          provider.serverTrends['total'] ?? [0, 0, 0, 0, 0],
           Colors.white,
         ),
         const SizedBox(height: 12),
         _buildCategoryItem(
+          context,
           'At-Risk Servers',
-          '2',
-          [1, 2, 2, 2, 2],
+          atRiskServers.toString(),
+          provider.serverTrends['atRisk'] ?? [0, 0, 0, 0, 0],
           Colors.orange,
         ),
         const SizedBox(height: 12),
         _buildCategoryItem(
+          context,
           'Safe Servers',
-          '9',
-          [7, 8, 9, 9, 9],
+          safeServers.toString(),
+          provider.serverTrends['safe'] ?? [0, 0, 0, 0, 0],
           Colors.green,
         ),
       ],
@@ -55,6 +78,7 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildCategoryItem(
+    BuildContext context,
     String label,
     String count,
     List<int> trend,
@@ -66,45 +90,84 @@ class DashboardScreen extends StatelessWidget {
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    count,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                count,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+              const Spacer(),
+              IconButton(
+                icon: const Icon(
+                  Icons.expand_more,
+                  color: Colors.grey,
                 ),
+                onPressed: () => _showTrendDetails(context, label, trend),
               ),
             ],
           ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(
-              Icons.expand_more,
-              color: Colors.grey,
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 30,
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                minX: 0,
+                maxX: trend.length.toDouble() - 1,
+                minY: 0,
+                maxY: trend.reduce((a, b) => a > b ? a : b).toDouble(),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: trend.asMap().entries.map((entry) {
+                      return FlSpot(
+                        entry.key.toDouble(),
+                        entry.value.toDouble(),
+                      );
+                    }).toList(),
+                    isCurved: true,
+                    color: color.withOpacity(0.5),
+                    barWidth: 2,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: color.withOpacity(0.1),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            onPressed: () {
-              // Toggle category details
-            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUsageSection() {
+  Widget _buildUsageSection(ServerProvider provider) {
+    final avgCpuUsage = provider.getAverageCpuUsage();
+    final avgMemoryUsage = provider.getAverageMemoryUsage();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -114,13 +177,22 @@ class DashboardScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Usage',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Usage',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton(
+                onPressed: () => provider.refreshResourceUsage(),
+                child: const Text('새로고침'),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Row(
@@ -128,19 +200,28 @@ class DashboardScreen extends StatelessWidget {
             children: [
               _buildUsageIndicator(
                 'CPU 사용량',
-                0.20,
-                Colors.pink,
+                avgCpuUsage,
+                _getUsageColor(avgCpuUsage),
               ),
               _buildUsageIndicator(
                 '메모리 사용량',
-                0.81,
-                Colors.pink,
+                avgMemoryUsage,
+                _getUsageColor(avgMemoryUsage),
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Color _getUsageColor(double value) {
+    if (value >= AppConstants.criticalThreshold) {
+      return Colors.red;
+    } else if (value >= AppConstants.warningThreshold) {
+      return Colors.orange;
+    }
+    return Colors.pink;
   }
 
   Widget _buildUsageIndicator(String label, double value, Color color) {
@@ -152,19 +233,31 @@ class DashboardScreen extends StatelessWidget {
           child: Stack(
             children: [
               CircularProgressIndicator(
-                value: value,
+                value: value / 100,
                 backgroundColor: Colors.grey[800],
                 valueColor: AlwaysStoppedAnimation<Color>(color),
                 strokeWidth: 10,
               ),
               Center(
-                child: Text(
-                  '${(value * 100).toInt()}%',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${value.toStringAsFixed(1)}%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      _getUsageStatus(value),
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -182,237 +275,197 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildServerList() {
+  String _getUsageStatus(double value) {
+    if (value >= AppConstants.criticalThreshold) {
+      return '위험';
+    } else if (value >= AppConstants.warningThreshold) {
+      return '경고';
+    }
+    return '정상';
+  }
+
+  Widget _buildServerList(BuildContext context, ServerProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Server List',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Server List',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pushNamed(context, RoutePaths.servers);
+              },
+              child: const Text('전체보기'),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        _buildServerListItem('Server 1', true),
-        _buildServerListItem('Server 2', false),
-        _buildServerListItem('Server 3', true),
-        _buildServerListItem('Server 4', true),
+        ...provider.servers.take(4).map((server) => _buildServerListItem(
+              context,
+              server.name,
+              server.isOnline,
+              onTap: () {
+                Navigator.pushNamed(
+                  context,
+                  RoutePaths.serverDetails,
+                  arguments: {'server': server},
+                );
+              },
+            )),
       ],
     );
   }
 
-  Widget _buildServerListItem(String name, bool isOnline) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isOnline ? Colors.green : Colors.red,
+  Widget _buildServerListItem(
+    BuildContext context,
+    String name,
+    bool isOnline, {
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isOnline ? Colors.green : Colors.red,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
+            const SizedBox(width: 12),
+            Text(
+              name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
             ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(
-              Icons.expand_more,
+            const Spacer(),
+            const Icon(
+              Icons.chevron_right,
               color: Colors.grey,
             ),
-            onPressed: () {
-              // Show server details
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// lib/screens/settings_screen.dart
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: const Text('Settings'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildSettingsSection(
-            '로그',
-            [
-              _buildSettingItem(
-                '로그 보관 기간',
-                '7일',
-                icon: Icons.history,
-              ),
-              _buildSettingItem(
-                '네트워크 로그',
-                true,
-                icon: Icons.wifi,
-              ),
-              _buildSettingItem(
-                '시스템 로그',
-                true,
-                icon: Icons.computer,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSettingsSection(
-            '알림',
-            [
-              _buildSettingItem(
-                '이메일 알림',
-                true,
-                icon: Icons.email,
-              ),
-              _buildSettingItem(
-                '푸시 알림',
-                false,
-                icon: Icons.notifications,
-              ),
-              _buildSettingItem(
-                '알림 주기',
-                '실시간',
-                icon: Icons.timer,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSettingsSection(
-            '보안',
-            [
-              _buildSettingItem(
-                '데이터 암호화',
-                true,
-                icon: Icons.security,
-              ),
-              _buildSettingItem(
-                '2단계 인증',
-                false,
-                icon: Icons.verified_user,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSettingsSection(
-            '기타',
-            [
-              _buildSettingItem(
-                '언어',
-                '한국어',
-                icon: Icons.language,
-              ),
-              _buildSettingItem(
-                '테마',
-                '다크',
-                icon: Icons.dark_mode,
-              ),
-              _buildSettingItem(
-                '서버 주소',
-                'localhost:8080',
-                icon: Icons.dns,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsSection(String title, List<Widget> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: items,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSettingItem(String label, dynamic value, {IconData? icon}) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          if (icon != null) ...[
-            Icon(icon, color: Colors.grey, size: 20),
-            const SizedBox(width: 12),
           ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
+        ),
+      ),
+    );
+  }
+
+  void _showTrendDetails(BuildContext context, String title, List<int> trend) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$title 트렌드',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const Spacer(),
-          if (value is bool)
-            Switch(
-              value: value,
-              onChanged: (newValue) {
-                // Update setting
-              },
-              activeColor: Colors.pink,
-            )
-          else
-            Row(
-              children: [
-                Text(
-                  value.toString(),
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
+            const SizedBox(height: 16),
+            AspectRatio(
+              aspectRatio: 2,
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: 1,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withOpacity(0.2),
+                        strokeWidth: 1,
+                      );
+                    },
                   ),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${value.toInt() + 1}일',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toInt().toString(),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  minX: 0,
+                  maxX: trend.length.toDouble() - 1,
+                  minY: 0,
+                  maxY: trend.reduce((a, b) => a > b ? a : b).toDouble(),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: trend.asMap().entries.map((entry) {
+                        return FlSpot(
+                          entry.key.toDouble(),
+                          entry.value.toDouble(),
+                        );
+                      }).toList(),
+                      isCurved: true,
+                      color: Colors.pink,
+                      barWidth: 2,
+                      isStrokeCapRound: true,
+                      dotData: const FlDotData(show: true),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Colors.pink.withOpacity(0.1),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.chevron_right,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ],
+              ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

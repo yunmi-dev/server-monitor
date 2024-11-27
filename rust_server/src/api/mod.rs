@@ -5,6 +5,7 @@ mod health;
 mod response;
 mod routes;
 mod servers;
+mod logs;
 
 pub use routes::configure_routes;
 pub use handlers::*;

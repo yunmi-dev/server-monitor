@@ -24,6 +24,7 @@ mixin _$User {
   String get name => throw _privateConstructorUsedError;
   String get email => throw _privateConstructorUsedError;
   String? get profileImage => throw _privateConstructorUsedError;
+  String? get profileUrl => throw _privateConstructorUsedError;
   bool get isEmailVerified => throw _privateConstructorUsedError;
   DateTime? get lastLoginAt => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
@@ -49,6 +50,7 @@ abstract class $UserCopyWith<$Res> {
       String name,
       String email,
       String? profileImage,
+      String? profileUrl,
       bool isEmailVerified,
       DateTime? lastLoginAt,
       DateTime createdAt,
@@ -75,6 +77,7 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? name = null,
     Object? email = null,
     Object? profileImage = freezed,
+    Object? profileUrl = freezed,
     Object? isEmailVerified = null,
     Object? lastLoginAt = freezed,
     Object? createdAt = null,
@@ -97,6 +100,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
       profileImage: freezed == profileImage
           ? _value.profileImage
           : profileImage // ignore: cast_nullable_to_non_nullable
+              as String?,
+      profileUrl: freezed == profileUrl
+          ? _value.profileUrl
+          : profileUrl // ignore: cast_nullable_to_non_nullable
               as String?,
       isEmailVerified: null == isEmailVerified
           ? _value.isEmailVerified
@@ -134,6 +141,7 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
       String name,
       String email,
       String? profileImage,
+      String? profileUrl,
       bool isEmailVerified,
       DateTime? lastLoginAt,
       DateTime createdAt,
@@ -157,6 +165,7 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? name = null,
     Object? email = null,
     Object? profileImage = freezed,
+    Object? profileUrl = freezed,
     Object? isEmailVerified = null,
     Object? lastLoginAt = freezed,
     Object? createdAt = null,
@@ -179,6 +188,10 @@ class __$$UserImplCopyWithImpl<$Res>
       profileImage: freezed == profileImage
           ? _value.profileImage
           : profileImage // ignore: cast_nullable_to_non_nullable
+              as String?,
+      profileUrl: freezed == profileUrl
+          ? _value.profileUrl
+          : profileUrl // ignore: cast_nullable_to_non_nullable
               as String?,
       isEmailVerified: null == isEmailVerified
           ? _value.isEmailVerified
@@ -212,6 +225,7 @@ class _$UserImpl implements _User {
       required this.name,
       required this.email,
       this.profileImage,
+      this.profileUrl,
       this.isEmailVerified = false,
       this.lastLoginAt,
       required this.createdAt,
@@ -230,6 +244,8 @@ class _$UserImpl implements _User {
   final String email;
   @override
   final String? profileImage;
+  @override
+  final String? profileUrl;
   @override
   @JsonKey()
   final bool isEmailVerified;
@@ -251,7 +267,7 @@ class _$UserImpl implements _User {
 
   @override
   String toString() {
-    return 'User(id: $id, name: $name, email: $email, profileImage: $profileImage, isEmailVerified: $isEmailVerified, lastLoginAt: $lastLoginAt, createdAt: $createdAt, updatedAt: $updatedAt, preferences: $preferences)';
+    return 'User(id: $id, name: $name, email: $email, profileImage: $profileImage, profileUrl: $profileUrl, isEmailVerified: $isEmailVerified, lastLoginAt: $lastLoginAt, createdAt: $createdAt, updatedAt: $updatedAt, preferences: $preferences)';
   }
 
   @override
@@ -264,6 +280,8 @@ class _$UserImpl implements _User {
             (identical(other.email, email) || other.email == email) &&
             (identical(other.profileImage, profileImage) ||
                 other.profileImage == profileImage) &&
+            (identical(other.profileUrl, profileUrl) ||
+                other.profileUrl == profileUrl) &&
             (identical(other.isEmailVerified, isEmailVerified) ||
                 other.isEmailVerified == isEmailVerified) &&
             (identical(other.lastLoginAt, lastLoginAt) ||
@@ -284,6 +302,7 @@ class _$UserImpl implements _User {
       name,
       email,
       profileImage,
+      profileUrl,
       isEmailVerified,
       lastLoginAt,
       createdAt,
@@ -312,6 +331,7 @@ abstract class _User implements User {
       required final String name,
       required final String email,
       final String? profileImage,
+      final String? profileUrl,
       final bool isEmailVerified,
       final DateTime? lastLoginAt,
       required final DateTime createdAt,
@@ -328,6 +348,8 @@ abstract class _User implements User {
   String get email;
   @override
   String? get profileImage;
+  @override
+  String? get profileUrl;
   @override
   bool get isEmailVerified;
   @override

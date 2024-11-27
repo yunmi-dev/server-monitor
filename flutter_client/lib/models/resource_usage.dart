@@ -10,16 +10,24 @@ class ResourceUsage with _$ResourceUsage {
   const ResourceUsage._(); // Custom getters를 위한 private constructor
 
   const factory ResourceUsage({
-    required double cpu, // percentage
-    required double memory, // percentage
-    required double disk, // percentage
-    required String network, // formatted string (e.g., "1.2 MB/s")
+    required double cpu,
+    required double memory,
+    required double disk,
+    required String network,
     @Default([]) List<TimeSeriesData> history,
     DateTime? lastUpdated,
   }) = _ResourceUsage;
 
   factory ResourceUsage.fromJson(Map<String, dynamic> json) =>
       _$ResourceUsageFromJson(json);
+
+  // CPU, Memory, Disk 사용량을 직접 반환하는 getter들
+  double get cpuUsage => cpu;
+  double get memoryUsage => memory;
+  double get diskUsage => disk;
+
+  // 네트워크 사용량은 이미 formatted string으로 저장되어 있음
+  String get networkUsage => network;
 
   /// CPU 사용량이 경고 수준인지 확인
   bool get isCpuWarning => cpu >= 80;

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_client/utils/logger.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,10 +16,17 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  bool _isError = false;
+  String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
+    _initializeApp();
+  }
+
+  void _setupAnimations() {
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -41,7 +47,6 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _controller.forward();
-    _initializeApp();
   }
 
   Future<void> _initializeApp() async {
@@ -54,19 +59,38 @@ class _SplashScreenState extends State<SplashScreen>
 
       if (!mounted) return;
 
+      if (authProvider.error != null) {
+        _handleError(authProvider.error!);
+        return;
+      }
+
       // 인증 상태에 따라 적절한 화면으로 이동
       if (authProvider.isAuthenticated) {
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        _navigateToScreen('/dashboard');
       } else {
-        Navigator.pushReplacementNamed(context, '/login');
+        _navigateToScreen('/login');
       }
     } catch (e) {
-      logger.error('Failed to initialize app: $e');
-      if (!mounted) return;
-
-      // 에러 발생 시 로그인 화면으로 이동
-      Navigator.pushReplacementNamed(context, '/login');
+      _handleError(e.toString());
     }
+  }
+
+  void _handleError(String message) {
+    if (!mounted) return;
+    setState(() {
+      _isError = true;
+      _errorMessage = message;
+    });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        _navigateToScreen('/login');
+      }
+    });
+  }
+
+  void _navigateToScreen(String route) {
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, route);
   }
 
   @override
@@ -85,7 +109,6 @@ class _SplashScreenState extends State<SplashScreen>
           return Stack(
             fit: StackFit.expand,
             children: [
-              // 배경 그라데이션
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -98,7 +121,6 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
               ),
-              // 로고와 로딩 인디케이터
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -120,23 +142,35 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ),
                     const SizedBox(height: 48),
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Theme.of(context).colorScheme.primary,
+                    if (_isError)
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: Text(
+                          _errorMessage,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Theme.of(context).colorScheme.primary,
+                            ),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
-              // 버전 정보
               Positioned(
                 bottom: 32,
                 left: 0,

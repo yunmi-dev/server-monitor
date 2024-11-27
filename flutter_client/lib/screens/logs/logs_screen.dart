@@ -1,4 +1,3 @@
-// lib/screens/logs/logs_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_client/config/constants.dart';
@@ -8,6 +7,7 @@ import 'package:flutter_client/widgets/logs/log_filter_sheet.dart';
 import 'package:flutter_client/widgets/logs/log_level_badge.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_client/utils/date_utils.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -160,7 +160,7 @@ class _LogsScreenState extends State<LogsScreen> {
 
       for (final log in allLogs) {
         csv.writeln(
-            '${log.timestamp.toIso8601String()},${log.level.name},${log.source},"${log.message.replaceAll('"', '""')}"');
+            '${log.timestamp.toIso8601String()},${log.level.value},${log.source},"${log.message.replaceAll('"', '""')}"');
       }
 
       final tempDir = await getTemporaryDirectory();
@@ -170,10 +170,14 @@ class _LogsScreenState extends State<LogsScreen> {
 
       if (!mounted) return;
 
-      await Share.shareFiles(
-        [file.path],
-        text: '서버 로그 내보내기',
+      final result = await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: '서버 로그 내보내기',
       );
+
+      if (result.status == ShareResultStatus.dismissed) {
+        await file.delete();
+      }
     } catch (e) {
       if (!mounted) return;
       _showError('로그 내보내기에 실패했습니다');
@@ -192,6 +196,32 @@ class _LogsScreenState extends State<LogsScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  void _toggleAutoScroll() {
+    setState(() => _autoScroll = !_autoScroll);
+  }
+
+  Future<void> _showFilters() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => LogFilterSheet(
+        selectedLevels: _selectedLogLevels,
+        startDate: _startDate,
+        endDate: _endDate,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedLogLevels = result['levels'] as Set<String>;
+        _startDate = result['startDate'] as DateTime?;
+        _endDate = result['endDate'] as DateTime?;
+      });
+      _initializeLogs();
+    }
   }
 
   @override
@@ -233,115 +263,6 @@ class _LogsScreenState extends State<LogsScreen> {
     );
   }
 
-  Widget _buildLogListView() {
-    if (_isLoading && _logs.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(AppConstants.spacing),
-      itemCount: _logs.length + (_hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index >= _logs.length) {
-          return _hasMore
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(AppConstants.spacing),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              : const SizedBox();
-        }
-
-        return _buildLogItem(_logs[index]);
-      },
-    );
-  }
-
-  void _onSearchChanged(String value) {
-    _searchDebouncer?.cancel();
-    _searchDebouncer = Timer(const Duration(milliseconds: 500), () {
-      _initializeLogs();
-    });
-  }
-
-  Future<void> _exportLogs() async {
-    try {
-      setState(() => _isLoading = true);
-
-      // 모든 로그 데이터 가져오기
-      final serverProvider = context.read<ServerProvider>();
-      final allLogs = await serverProvider.getAllLogs(
-        serverId: widget.serverId,
-        levels: _selectedLogLevels.toList(),
-        startDate: _startDate,
-        endDate: _endDate,
-        search: _searchController.text,
-      );
-
-      // CSV 형식으로 변환
-      final csv = StringBuffer();
-      csv.writeln('Timestamp,Level,Source,Message');
-
-      for (final log in allLogs) {
-        csv.writeln(
-            '${log.timestamp.toIso8601String()},${log.level},${log.source},"${log.message.replaceAll('"', '""')}"');
-      }
-
-      // 파일 저장 및 공유
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-          '${tempDir.path}/logs_${DateTime.now().millisecondsSinceEpoch}.csv');
-      await file.writeAsString(csv.toString());
-
-      await Share.shareFiles(
-        [file.path],
-        text: '서버 로그 내보내기',
-      );
-    } catch (e) {
-      _showError('로그 내보내기에 실패했습니다');
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _toggleSearch() {
-    setState(() {
-      _isSearching = !_isSearching;
-      if (!_isSearching) {
-        _searchController.clear();
-        // 검색 필터 초기화
-      }
-    });
-  }
-
-  void _toggleAutoScroll() {
-    setState(() => _autoScroll = !_autoScroll);
-  }
-
-  Future<void> _showFilters() async {
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => LogFilterSheet(
-        selectedLevels: _selectedLogLevels,
-        startDate: _startDate,
-        endDate: _endDate,
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        _selectedLogLevels = result['levels'] as Set<String>;
-        _startDate = result['startDate'] as DateTime?;
-        _endDate = result['endDate'] as DateTime?;
-      });
-      _initializeLogs();
-    }
-  }
-
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.all(AppConstants.spacing),
@@ -364,9 +285,6 @@ class _LogsScreenState extends State<LogsScreen> {
           ),
         ),
         style: const TextStyle(color: Colors.white),
-        onChanged: (value) {
-          // 검색 로직 구현
-        },
       ),
     );
   }
@@ -415,8 +333,7 @@ class _LogsScreenState extends State<LogsScreen> {
     );
   }
 
-  @override
-  Widget _buildLogList() {
+  Widget _buildLogListView() {
     if (_isLoading && _logs.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -449,7 +366,7 @@ class _LogsScreenState extends State<LogsScreen> {
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius / 2),
         border: Border.all(
-          color: _getLogLevelColor(log.level as String).withOpacity(0.3),
+          color: log.level.color.withOpacity(0.3),
           width: 1,
         ),
       ),
@@ -463,10 +380,10 @@ class _LogsScreenState extends State<LogsScreen> {
             children: [
               Row(
                 children: [
-                  LogLevelBadge(level: log.level, showDelete: false),
+                  LogLevelBadge(level: log.level.value, showDelete: false),
                   const SizedBox(width: AppConstants.spacing),
                   Text(
-                    DateUtils.format(log.timestamp),
+                    DateTimeUtils.formatFull(log.timestamp),
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   const Spacer(),
@@ -528,10 +445,10 @@ class _LogsScreenState extends State<LogsScreen> {
           children: [
             Row(
               children: [
-                LogLevelBadge(level: log.level, showDelete: false),
+                LogLevelBadge(level: log.level.value, showDelete: false),
                 const SizedBox(width: AppConstants.spacing),
                 Text(
-                  DateUtils.format(log.timestamp),
+                  DateTimeUtils.formatFull(log.timestamp),
                   style: const TextStyle(color: Colors.grey),
                 ),
                 const Spacer(),
@@ -567,35 +484,74 @@ class _LogsScreenState extends State<LogsScreen> {
               '소스: ${log.source}',
               style: const TextStyle(color: Colors.white),
             ),
-            // 추가 로그 메타데이터 표시
+            if (log.component.isNotEmpty) ...[
+              const SizedBox(height: AppConstants.spacing / 2),
+              Text(
+                '컴포넌트: ${log.component}',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+            if (log.stackTrace != null) ...[
+              const SizedBox(height: AppConstants.spacing),
+              const Text(
+                '스택 트레이스',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppConstants.spacing / 2),
+              Container(
+                padding: const EdgeInsets.all(AppConstants.spacing),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius:
+                      BorderRadius.circular(AppConstants.cardBorderRadius / 2),
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Text(
+                    log.stackTrace!,
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (log.metadata != null && log.metadata!.isNotEmpty) ...[
+              const SizedBox(height: AppConstants.spacing),
+              const Text(
+                '메타데이터',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppConstants.spacing / 2),
+              ...log.metadata!.entries.map((entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '${entry.key}: ${entry.value}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  )),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Color _getLogLevelColor(String level) {
-    switch (level.toLowerCase()) {
-      case 'error':
-        return Colors.red;
-      case 'warning':
-        return Colors.orange;
-      case 'info':
-        return Colors.blue;
-      case 'debug':
-        return Colors.grey;
-      default:
-        return Colors.grey;
-    }
-  }
-
   String _formatDateRange(DateTime? start, DateTime? end) {
     if (start != null && end != null) {
-      return '${DateUtils.format(start)} - ${DateUtils.format(end)}';
+      return '${DateTimeUtils.formatDate(start)} - ${DateTimeUtils.formatDate(end)}';
     } else if (start != null) {
-      return '${DateUtils.format(start)}부터';
+      return '${DateTimeUtils.formatDate(start)}부터';
     } else if (end != null) {
-      return '${DateUtils.format(end)}까지';
+      return '${DateTimeUtils.formatDate(end)}까지';
     }
     return '';
   }

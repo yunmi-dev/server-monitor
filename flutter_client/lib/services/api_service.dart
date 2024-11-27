@@ -173,6 +173,54 @@ class ApiService {
     );
   }
 
+  /// 서버 상태에 대한 트렌드 데이터 조회
+  Future<Map<String, List<int>>> getServerTrends({
+    int days = 5,
+    String? type,
+  }) async {
+    return _handleRequest<Map<String, List<int>>>(
+      () => _dio.get(
+        '/servers/trends',
+        queryParameters: {
+          'days': days.toString(),
+          if (type != null) 'type': type,
+        },
+      ),
+      (data) => {
+        'total': List<int>.from(data['total'] ?? []),
+        'at_risk': List<int>.from(data['at_risk'] ?? []),
+        'safe': List<int>.from(data['safe'] ?? []),
+      },
+    );
+  }
+
+  /// 특정 서버의 리소스 사용량 트렌드 조회
+  Future<Map<String, List<double>>> getServerResourceTrends({
+    required String serverId,
+    Duration duration = const Duration(hours: 24),
+    String? resourceType, // 'cpu', 'memory', 'disk', 'network'
+  }) async {
+    final endDate = DateTime.now();
+    final startDate = endDate.subtract(duration);
+
+    return _handleRequest<Map<String, List<double>>>(
+      () => _dio.get(
+        '/servers/$serverId/resource-trends',
+        queryParameters: {
+          'startDate': startDate.toIso8601String(),
+          'endDate': endDate.toIso8601String(),
+          if (resourceType != null) 'type': resourceType,
+        },
+      ),
+      (data) => Map<String, List<double>>.from(
+        data.map((key, value) => MapEntry(
+              key as String,
+              (value as List).map((v) => (v as num).toDouble()).toList(),
+            )),
+      ),
+    );
+  }
+
   // Alert 관련 API 메서드들
   Future<List<Alert>> getAlerts({
     Map<String, dynamic>? filters,

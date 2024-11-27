@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/providers/auth_provider.dart';
 import 'package:flutter_client/utils/validation_utils.dart';
-// import 'package:flutter_client/utils/snackbar_utils.dart';
-import 'package:flutter_client/widgets/common/confirm_dialog.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_client/models/user.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,11 +28,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+  File? _imageFile;
+  bool _isUploadingImage = false;
+  late final BuildContext _context;
 
   @override
   void initState() {
     super.initState();
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    _context = context;
+    final user = Provider.of<AuthProvider>(_context, listen: false).user;
     _nameController = TextEditingController(text: user?.name);
     _emailController = TextEditingController(text: user?.email);
     _currentPasswordController = TextEditingController();
@@ -95,34 +100,106 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // 이미지 선택 메서드
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+      if (pickedFile != null) {
+        if (!mounted) return;
+        setState(() {
+          _imageFile = File(pickedFile.path);
+          _isUploadingImage = true;
+        });
+
+        final bytes = await _imageFile!.readAsBytes();
+
+        // BuildContext 사용 전 mounted 체크
+        if (!mounted) return;
+        await Provider.of<AuthProvider>(_context, listen: false)
+            .updateProfile(profileImage: bytes);
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(_context).showSnackBar(
+          const SnackBar(content: Text('프로필 이미지가 업데이트되었습니다.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(_context).showSnackBar(
+        SnackBar(content: Text('이미지 업로드 실패: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingImage = false);
+      }
+    }
+  }
+
+  // 계정 삭제 전 비밀번호 확인 다이얼로그
+  Future<bool?> _showDeleteConfirmDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('계정 삭제'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('계정을 삭제하시려면 비밀번호를 입력해주세요.'),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _currentPasswordController,
+              decoration: _buildInputDecoration(
+                label: '비밀번호',
+                icon: Icons.lock_outline,
+                isPassword: true,
+                obscureText: _obscureCurrentPassword,
+                onToggleObscure: () => setState(
+                  () => _obscureCurrentPassword = !_obscureCurrentPassword,
+                ),
+              ),
+              obscureText: _obscureCurrentPassword,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 계정 삭제 핸들러 수정
   Future<void> _handleDeleteAccount() async {
     final scaffoldContext = ScaffoldMessenger.of(context);
     final navigationContext = Navigator.of(context);
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => const ConfirmDialog(
-        title: '계정 삭제',
-        content: '정말 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
-        confirmText: '삭제',
-        isDestructive: true,
-      ),
-    );
-
+    final confirmed = await _showDeleteConfirmDialog();
     if (!mounted || confirmed != true) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      await authProvider.deleteAccount(_currentPasswordController.text);
+      // BuildContext 사용 전 mounted 체크
+      if (!mounted) return;
+      await Provider.of<AuthProvider>(_context, listen: false)
+          .deleteAccount(password: _currentPasswordController.text);
 
       if (!mounted) return;
-
       navigationContext.pushReplacementNamed('/login');
     } catch (e) {
       if (!mounted) return;
-
       scaffoldContext.showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
@@ -131,6 +208,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  // 프로필 이미지 위젯 수정
+
+  Widget _buildProfileImage(User user) {
+    return Stack(
+      children: [
+        if (_imageFile != null)
+          CircleAvatar(
+            radius: 50,
+            backgroundImage: FileImage(_imageFile!),
+          )
+        else if (user.profileImage != null)
+          CircleAvatar(
+            radius: 50,
+            backgroundImage: NetworkImage(user.profileImage!),
+          )
+        else
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            child: Text(
+              user.name.substring(0, 1).toUpperCase(),
+              style: const TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        if (_isEditing)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              radius: 18,
+              child: _isUploadingImage
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.camera_alt, size: 18),
+                      color: Colors.white,
+                      onPressed: _pickImage,
+                    ),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -163,66 +295,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       body: SingleChildScrollView(
         padding: AppConstants.defaultPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: Text(
-                      user.name.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  if (_isEditing)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: CircleAvatar(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        radius: 18,
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt, size: 18),
-                          color: Colors.white,
-                          onPressed: () {
-                            // Implement profile image update
-                          },
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppConstants.spacing * 3),
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoSection(user),
-                  if (_isEditing) ...[
-                    const SizedBox(height: AppConstants.spacing * 2),
-                    _buildPasswordSection(),
-                    const SizedBox(height: AppConstants.spacing * 2),
-                    _buildActionButtons(),
-                  ],
-                ],
-              ),
-            ),
-          ],
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: _buildProfileImage(user)),
+              const SizedBox(height: AppConstants.spacing * 3),
+              _buildInfoSection(user),
+              if (_isEditing) ...[
+                const SizedBox(height: AppConstants.spacing * 2),
+                _buildPasswordSection(),
+                const SizedBox(height: AppConstants.spacing * 2),
+                _buildActionButtons(),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoSection(user) {
+  Widget _buildInfoSection(User user) {
     return Container(
       padding: const EdgeInsets.all(AppConstants.spacing),
       decoration: BoxDecoration(
@@ -262,12 +356,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           if (!_isEditing) ...[
             const SizedBox(height: AppConstants.spacing),
-            _buildInfoRow('가입일', user.createdAt),
-            _buildInfoRow('마지막 로그인', user.lastLoginAt),
+            _buildInfoRow('가입일', _formatDateTime(user.createdAt)),
+            _buildInfoRow(
+              '마지막 로그인',
+              user.lastLoginAt != null
+                  ? _formatDateTime(user.lastLoginAt!)
+                  : '로그인 정보 없음',
+            ),
           ],
         ],
       ),
     );
+  }
+
+  // DateTime 포맷팅을 위한 유틸리티 메서드 - 일단 추가
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.year}년 ${dateTime.month}월 ${dateTime.day}일 ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   Widget _buildPasswordSection() {

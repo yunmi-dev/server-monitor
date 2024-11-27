@@ -17,7 +17,6 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   DateTime? _lastActivityTime;
-  bool _biometricsEnabled = false;
 
   static const sessionTimeout = Duration(minutes: 30);
   static const tokenRefreshInterval = Duration(minutes: 5);
@@ -26,9 +25,7 @@ class AuthProvider with ChangeNotifier {
     required AuthService authService,
     required StorageService storageService,
   })  : _authService = authService,
-        _storageService = storageService {
-    _initialize();
-  }
+        _storageService = storageService;
 
   // Getters
   User? get user => _user;
@@ -36,14 +33,14 @@ class AuthProvider with ChangeNotifier {
   bool get isInitializing => _isInitializing;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get isBiometricsEnabled => _biometricsEnabled;
 
-  Future<void> _initialize() async {
+  // Initialize method added here
+  Future<void> initialize() async {
     try {
-      _loadSettings();
       final token = await _storageService.getToken();
+      final refreshTokenStr = await _storageService.getRefreshToken();
 
-      if (token != null) {
+      if (token != null && refreshTokenStr != null) {
         _user = await _authService.getCurrentUser();
         _startSessionTimer();
         _updateLastActivityTime();
@@ -55,15 +52,6 @@ class AuthProvider with ChangeNotifier {
     } finally {
       _isInitializing = false;
       notifyListeners();
-    }
-  }
-
-  Future<void> _loadSettings() async {
-    try {
-      _biometricsEnabled =
-          _storageService.getSetting<bool>('biometrics_enabled') ?? false;
-    } catch (e) {
-      logger.error('Failed to load auth settings: $e');
     }
   }
 
@@ -86,17 +74,6 @@ class AuthProvider with ChangeNotifier {
 
   void _updateLastActivityTime() {
     _lastActivityTime = DateTime.now();
-  }
-
-  Future<void> setBiometricsEnabled(bool enabled) async {
-    try {
-      await _storageService.setSetting('biometrics_enabled', enabled);
-      _biometricsEnabled = enabled;
-      notifyListeners();
-    } catch (e) {
-      logger.error('Failed to update biometrics setting: $e');
-      throw Exception('Failed to update biometrics setting');
-    }
   }
 
   // Auth Methods
@@ -157,21 +134,6 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
-  Future<void> _handleLogout() async {
-    _sessionTimer?.cancel();
-    _sessionTimer = null;
-    _user = null;
-    _lastActivityTime = null;
-    await _storageService.clearToken();
-    await _storageService.clearRefreshToken();
-  }
-
-  Future<void> resetPassword(String email) async {
-    await _handleAuthAction(() async {
-      await _authService.resetPassword(email);
-    });
-  }
-
   Future<void> updatePassword({
     required String currentPassword,
     required String newPassword,
@@ -199,18 +161,27 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
-  Future<void> deleteAccount() async {
+  Future<void> deleteAccount({String? password}) async {
     await _handleAuthAction(() async {
-      await _authService.deleteAccount();
+      await _authService.deleteAccount(password: password);
       await _handleLogout();
+    });
+  }
+
+  Future<void> resetPassword(String email) async {
+    await _handleAuthAction(() async {
+      await _authService.resetPassword(email.trim());
     });
   }
 
   Future<void> refreshSession() async {
     if (!isAuthenticated) return;
 
+    final refreshToken = await _storageService.getRefreshToken();
+    if (refreshToken == null) return;
+
     try {
-      final user = await _authService.getCurrentUser();
+      final user = await _authService.refreshToken(refreshToken);
       await _handleSuccessfulAuth(user);
     } catch (e) {
       logger.error('Session refresh failed: $e');
@@ -240,6 +211,16 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _handleLogout() async {
+    _sessionTimer?.cancel();
+    _sessionTimer = null;
+    _user = null;
+    _lastActivityTime = null;
+    await _storageService.clearToken();
+    await _storageService.clearRefreshToken();
+    notifyListeners();
   }
 
   @override

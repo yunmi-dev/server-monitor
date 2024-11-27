@@ -1,5 +1,4 @@
 // lib/services/auth_service.dart
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
@@ -306,14 +305,13 @@ class AuthService extends ChangeNotifier {
   }
 
   // 토큰 갱신 전에 refreshToken 유효성 검사 추가
-  Future<User> refreshToken() async {
+  Future<User> refreshToken(String refreshToken) async {
     return handleAuthRequest(() async {
-      final refreshToken = await _storageService.getRefreshToken();
-      if (refreshToken == null) {
-        throw AuthException('No refresh token found');
+      if (refreshToken.isEmpty) {
+        throw AuthException('No refresh token provided');
       }
 
-      // refresh token도 유효성 검사
+      // refresh token 유효성 검사
       if (!_isTokenValid(refreshToken)) {
         await _clearAuth();
         throw AuthException('Refresh token expired. Please sign in again.');
@@ -336,13 +334,18 @@ class AuthService extends ChangeNotifier {
       if (_currentUser != null) return _currentUser!;
 
       final token = await _storageService.getToken();
-      if (token == null) throw AuthException('No token found');
+      final refreshTokenStr = await _storageService.getRefreshToken();
+
+      if (token == null || refreshTokenStr == null) {
+        throw AuthException('No token found');
+      }
 
       // 토큰 유효성 검사 추가
       if (!_isTokenValid(token)) {
         // 토큰이 만료되었거나 곧 만료될 예정이면 갱신 시도
         try {
-          return await refreshToken();
+          // refreshToken 메서드 호출 시 문자열로 전달
+          return await refreshToken(refreshTokenStr);
         } catch (e) {
           await _clearAuth();
           throw AuthException('Session expired. Please sign in again.');
@@ -360,11 +363,56 @@ class AuthService extends ChangeNotifier {
     });
   }
 
-  Future<void> deleteAccount() async {
-    return handleAuthRequest(() async {
-      await _apiService.request(path: '/auth/account', method: 'DELETE');
+  void _setupTokenRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) async {
+        try {
+          final token = await _storageService.getToken();
+          final refreshTokenStr = await _storageService.getRefreshToken();
+
+          if (token == null || refreshTokenStr == null) return;
+
+          if (!_isTokenValid(token)) {
+            // refreshToken 메서드 호출 시 문자열로 전달
+            await refreshToken(refreshTokenStr);
+          }
+        } catch (e) {
+          logger.error('Automatic token refresh failed: $e');
+        }
+      },
+    );
+  }
+
+  Future<void> deleteAccount({String? password}) async {
+    try {
+      _loading = true;
+      notifyListeners();
+
+      await _apiService.request(
+        path: '/auth/account',
+        method: 'DELETE',
+        data: password != null ? {'password': password} : null,
+      );
+
+      // 소셜 로그인 연동 해제
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut();
+      }
+      await FacebookAuth.instance.logOut();
+      try {
+        await kakao.UserApi.instance.logout();
+      } catch (_) {}
+
       await _clearAuth();
-    });
+    } catch (e) {
+      logger.error('Failed to delete account: $e');
+      rethrow;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> resetPassword(String email) async {
@@ -385,26 +433,6 @@ class AuthService extends ChangeNotifier {
     _currentUser = result.user;
     _setupTokenRefresh();
     notifyListeners();
-  }
-
-  void _setupTokenRefresh() {
-    _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(
-      const Duration(minutes: 5), // 5분마다 체크
-      (_) async {
-        try {
-          final token = await _storageService.getToken();
-          if (token == null) return;
-
-          // 토큰이 유효하지 않거나 곧 만료될 예정이면 갱신
-          if (!_isTokenValid(token)) {
-            await refreshToken();
-          }
-        } catch (e) {
-          logger.error('Automatic token refresh failed: $e');
-        }
-      },
-    );
   }
 
   Future<void> _clearAuth() async {
