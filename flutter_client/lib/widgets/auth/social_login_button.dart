@@ -11,14 +11,14 @@ class SocialLoginButton extends StatefulWidget {
   final bool isLoading;
 
   const SocialLoginButton({
-    Key? key,
+    super.key,
     required this.provider,
     required this.onPressed,
     required this.backgroundColor,
     required this.iconPath,
     this.textColor,
     this.isLoading = false,
-  }) : super(key: key);
+  });
 
   @override
   State<SocialLoginButton> createState() => _SocialLoginButtonState();
@@ -78,172 +78,56 @@ class _SocialLoginButtonState extends State<SocialLoginButton>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _scaleAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: child,
-        );
-      },
-      child: GestureDetector(
-        onTapDown: _handleTapDown,
-        onTapUp: _handleTapUp,
-        onTapCancel: _handleTapCancel,
-        child: Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: widget.backgroundColor,
-            borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
-            boxShadow: [
-              if (!_isPressed)
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-            ],
+    bool isApple = widget.provider == 'Apple';
+
+    return Container(
+      height: 48,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: widget.backgroundColor,
+        borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: widget.isLoading ? null : widget.onPressed,
-              borderRadius:
-                  BorderRadius.circular(AppConstants.cardBorderRadius),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppConstants.spacing * 1.5,
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Image.asset(
+                    widget.iconPath,
+                    fit: BoxFit.contain,
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (widget.isLoading)
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            widget.textColor ?? Colors.white,
-                          ),
-                        ),
-                      )
-                    else ...[
-                      Image.asset(
-                        widget.iconPath,
-                        width: 24,
-                        height: 24,
-                      ),
-                      const SizedBox(width: AppConstants.spacing),
-                      Text(
-                        'Continue with ${widget.provider}',
-                        style: TextStyle(
-                          color: widget.textColor ?? Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ],
+                const SizedBox(width: 12),
+                Text(
+                  isApple
+                      ? 'Sign in with Apple'
+                      : 'Login with ${widget.provider}',
+                  style: TextStyle(
+                    color: widget.textColor ?? Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-// Themed versions of the SocialLoginButton
-class AppleLoginButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  final bool isLoading;
-
-  const AppleLoginButton({
-    Key? key,
-    required this.onPressed,
-    this.isLoading = false,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return SocialLoginButton(
-      provider: 'Apple',
-      onPressed: onPressed,
-      backgroundColor: Colors.black,
-      textColor: Colors.white,
-      iconPath: 'assets/icons/apple.png',
-      isLoading: isLoading,
-    );
-  }
-}
-
-class KakaoLoginButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  final bool isLoading;
-
-  const KakaoLoginButton({
-    Key? key,
-    required this.onPressed,
-    this.isLoading = false,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return SocialLoginButton(
-      provider: 'Kakao',
-      onPressed: onPressed,
-      backgroundColor: const Color(0xFFFEE500),
-      textColor: const Color(0xFF000000),
-      iconPath: 'assets/icons/kakao.png',
-      isLoading: isLoading,
-    );
-  }
-}
-
-class GoogleLoginButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  final bool isLoading;
-
-  const GoogleLoginButton({
-    Key? key,
-    required this.onPressed,
-    this.isLoading = false,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return SocialLoginButton(
-      provider: 'Google',
-      onPressed: onPressed,
-      backgroundColor: Colors.white,
-      textColor: Colors.black87,
-      iconPath: 'assets/icons/google.png',
-      isLoading: isLoading,
-    );
-  }
-}
-
-class FacebookLoginButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  final bool isLoading;
-
-  const FacebookLoginButton({
-    Key? key,
-    required this.onPressed,
-    this.isLoading = false,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return SocialLoginButton(
-      provider: 'Facebook',
-      onPressed: onPressed,
-      backgroundColor: const Color(0xFF1877F2),
-      textColor: Colors.white,
-      iconPath: 'assets/icons/facebook.png',
-      isLoading: isLoading,
     );
   }
 }

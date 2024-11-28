@@ -105,85 +105,81 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppConstants.spacing * 2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: AppConstants.spacing * 2),
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: Text(
-                  'FLick',
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(AppConstants.spacing * 2),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight:
+                        screenHeight - MediaQuery.of(context).padding.vertical,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: AppConstants.spacing),
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: Text(
+                          'FLick',
+                          style: Theme.of(context)
+                              .textTheme
+                              .displayLarge
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
                       ),
+                      const SizedBox(height: AppConstants.spacing * 2),
+                      Text(
+                        '간편 로그인',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                            ),
+                      ),
+                      const SizedBox(height: AppConstants.spacing),
+                      _buildSocialLoginButtons(),
+                      const SizedBox(height: AppConstants.spacing),
+                      const _DividerWithText(text: '또는'),
+                      const SizedBox(height: AppConstants.spacing),
+                      _buildLoginForm(authProvider),
+                      const SizedBox(height: AppConstants.spacing / 2),
+                      _buildForgotPassword(),
+                      const SizedBox(height: AppConstants.spacing),
+                      _buildSignUpLink(),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: AppConstants.spacing * 4),
-              Text(
-                '간편 로그인',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                    ),
-              ),
-              const SizedBox(height: AppConstants.spacing * 2),
-              _buildSocialLoginButtons(),
-              const SizedBox(height: AppConstants.spacing * 2),
-              const _DividerWithText(text: '또는'),
-              const SizedBox(height: AppConstants.spacing * 2),
-              _buildLoginForm(authProvider),
-              const SizedBox(height: AppConstants.spacing),
-              _buildForgotPassword(),
-              const SizedBox(height: AppConstants.spacing * 2),
-              _buildSignUpLink(),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
   Widget _buildSocialLoginButtons() {
-    return Column(
-      children: [
-        SocialLoginButton(
-          provider: 'Apple',
-          onPressed: () => _handleSocialLogin('apple'),
-          backgroundColor: Colors.white,
-          textColor: Colors.black,
-          iconPath: 'assets/icons/apple.png',
-        ),
-        const SizedBox(height: AppConstants.spacing),
-        SocialLoginButton(
-          provider: 'Kakao',
-          onPressed: () => _handleSocialLogin('kakao'),
-          backgroundColor: const Color(0xFFFEE500),
-          textColor: Colors.black,
-          iconPath: 'assets/icons/kakao.png',
-        ),
-        const SizedBox(height: AppConstants.spacing),
-        SocialLoginButton(
-          provider: 'Google',
-          onPressed: () => _handleSocialLogin('google'),
-          backgroundColor: Colors.white,
-          textColor: Colors.black,
-          iconPath: 'assets/icons/google.png',
-        ),
-        const SizedBox(height: AppConstants.spacing),
-        SocialLoginButton(
-          provider: 'Facebook',
-          onPressed: () => _handleSocialLogin('facebook'),
-          backgroundColor: const Color(0xFF1877F2),
-          textColor: Colors.white,
-          iconPath: 'assets/icons/facebook.png',
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacing),
+      child: Column(
+        children: [
+          Image.asset('assets/icons/apple.png'),
+          const SizedBox(height: AppConstants.spacing),
+          Image.asset('assets/icons/kakao.png'),
+          const SizedBox(height: AppConstants.spacing),
+          Image.asset('assets/icons/google.png'),
+          const SizedBox(height: AppConstants.spacing),
+          Image.asset('assets/icons/facebook.png'),
+        ],
+      ),
     );
   }
 
