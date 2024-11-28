@@ -78,52 +78,55 @@ class _SocialLoginButtonState extends State<SocialLoginButton>
 
   @override
   Widget build(BuildContext context) {
-    bool isApple = widget.provider == 'Apple';
-
-    return Container(
-      height: 48,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: widget.backgroundColor,
-        borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onPressed,
-          borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: Image.asset(
-                    widget.iconPath,
-                    fit: BoxFit.contain,
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: child,
+        );
+      },
+      child: GestureDetector(
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        child: SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: Container(
+            decoration: BoxDecoration(
+              color: widget.backgroundColor,
+              borderRadius:
+                  BorderRadius.circular(AppConstants.cardBorderRadius),
+              boxShadow: [
+                if (!_isPressed)
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  isApple
-                      ? 'Sign in with Apple'
-                      : 'Login with ${widget.provider}',
-                  style: TextStyle(
-                    color: widget.textColor ?? Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
               ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius:
+                  BorderRadius.circular(AppConstants.cardBorderRadius),
+              child: InkWell(
+                onTap: widget.isLoading ? null : widget.onPressed,
+                borderRadius:
+                    BorderRadius.circular(AppConstants.cardBorderRadius),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
+                  child: AspectRatio(
+                    aspectRatio: 10 / 1.5,
+                    child: Image.asset(
+                      widget.iconPath,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
