@@ -5,6 +5,10 @@ import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/constants/route_paths.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_client/providers/server_provider.dart';
+import 'package:flutter_client/screens/alerts/alerts_screen.dart';
+import 'package:flutter_client/screens/stats/stats_screen.dart';
+import 'package:flutter_client/screens/server/servers_screen.dart';
+import 'package:flutter_client/screens/settings/settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,6 +19,65 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+
+  final List<Widget> _screens = const [
+    DashboardView(),
+    StatsScreen(),
+    ServersScreen(),
+    AlertsScreen(),
+    SettingsScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
+      bottomNavigationBar: NavigationBar(
+        backgroundColor: Colors.grey[900],
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: '홈',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insert_chart_outlined),
+            selectedIcon: Icon(Icons.insert_chart),
+            label: '통계',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.computer_outlined),
+            selectedIcon: Icon(Icons.computer),
+            label: '서버',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.notifications_outlined),
+            selectedIcon: Icon(Icons.notifications),
+            label: '알림',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.menu),
+            selectedIcon: Icon(Icons.menu),
+            label: '메뉴',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DashboardView extends StatelessWidget {
+  const DashboardView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -45,59 +108,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           );
         },
-      ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: Colors.grey[900],
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-          switch (index) {
-            case 0:
-              // 현재 화면이므로 무시
-              break;
-            case 1:
-              Navigator.pushReplacementNamed(context, '/stats');
-              break;
-            case 2:
-              Navigator.pushReplacementNamed(context, '/servers');
-              break;
-            case 3:
-              Navigator.pushReplacementNamed(context, '/alerts');
-              break;
-            case 4:
-              Navigator.pushReplacementNamed(context, '/settings');
-              break;
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '홈',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.insert_chart_outlined),
-            selectedIcon: Icon(Icons.insert_chart),
-            label: '통계',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.computer_outlined),
-            selectedIcon: Icon(Icons.computer),
-            label: '서버',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: '알림',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu),
-            selectedIcon: Icon(Icons.menu),
-            label: '메뉴',
-          ),
-        ],
       ),
     );
   }

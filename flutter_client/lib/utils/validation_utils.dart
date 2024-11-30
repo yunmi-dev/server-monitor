@@ -12,6 +12,36 @@ class ValidationUtils {
   );
   static final _portRegex = RegExp(
       r'^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$');
+  static final _domainRegex = RegExp(
+    r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$',
+  );
+
+  // 서버 이름 검증 추가
+  static String? validateServerName(String? value) {
+    if (value == null || value.isEmpty) {
+      return '서버 이름을 입력해주세요';
+    }
+    if (value.length < 3) {
+      return '서버 이름은 3자 이상이어야 합니다';
+    }
+    if (value.length > 50) {
+      return '서버 이름은 50자를 초과할 수 없습니다';
+    }
+    return null;
+  }
+
+  // 호스트 검증 수정
+  static String? validateHost(String? value) {
+    if (value == null || value.isEmpty) {
+      return '호스트 주소를 입력해주세요';
+    }
+
+    // IP 주소 또는 도메인 검증
+    if (!_ipRegex.hasMatch(value) && !_domainRegex.hasMatch(value)) {
+      return '올바른 IP 주소 또는 도메인을 입력해주세요';
+    }
+    return null;
+  }
 
   // 이메일 검증
   static String? validateEmail(String? value) {
@@ -51,7 +81,7 @@ class ValidationUtils {
   }
 
   // 필수 입력 검증
-  static String? validateRequired(String? value, String fieldName) {
+  static String? validateRequired(String? value, [String fieldName = '값']) {
     if (value == null || value.isEmpty) {
       return '$fieldName을(를) 입력해주세요';
     }

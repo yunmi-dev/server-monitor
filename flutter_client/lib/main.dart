@@ -13,6 +13,7 @@ import 'package:flutter_client/services/storage_service.dart';
 import 'package:flutter_client/providers/theme_provider.dart';
 import 'package:flutter_client/services/log_service.dart';
 import 'package:flutter_client/providers/log_provider.dart';
+import 'package:flutter_client/providers/alert_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +44,6 @@ void main() async {
           create: (_) => SettingsProvider(storageService),
         ),
         ChangeNotifierProvider<AuthProvider>(
-          // 명시적 타입 추가
           create: (context) => AuthProvider(
             authService: authService,
             storageService: storageService,
@@ -59,6 +59,14 @@ void main() async {
           create: (context) => LogProvider(
             logService: logService,
           ),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => LogProvider(
+            logService: logService,
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => AlertProvider(apiService),
         ),
       ],
       child: const App(),
