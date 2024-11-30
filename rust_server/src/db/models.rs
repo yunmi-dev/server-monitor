@@ -134,14 +134,55 @@ pub struct Alert {
     pub acknowledged_by: Option<String>,
 }
 
+
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
+#[sqlx(type_name = "auth_provider")]
+#[sqlx(rename_all = "lowercase")]
+pub enum AuthProvider {
+    Email,
+    Google,
+    Apple,
+    Kakao,
+    Facebook,
+}
+
+impl_common_traits!(AuthProvider, {
+    Email => "email",
+    Google => "google",
+    Apple => "apple",
+    Kakao => "kakao",
+    Facebook => "facebook"
+});
+
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
     pub id: String,
     pub email: String,
-    pub password_hash: String,
+    pub password_hash: Option<String>,  // null 허용 (소셜 로그인의 경우)
     pub name: String,
     #[sqlx(rename = "role")]
     pub role: UserRole,
+    #[sqlx(rename = "provider")]
+    pub provider: AuthProvider,
+    pub profile_image_url: Option<String>,  // 프로필 이미지 URL
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub last_login_at: Option<DateTime<Utc>>,
+}
+
+impl Default for User {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            email: String::new(),
+            password_hash: None,
+            name: String::new(),
+            role: UserRole::User,  // 기본 역할은 User
+            provider: AuthProvider::Email,  // 기본 provider는 Email
+            profile_image_url: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            last_login_at: None,
+        }
+    }
 }

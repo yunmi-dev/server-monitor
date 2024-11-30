@@ -1,6 +1,7 @@
 -- init-scripts/01-init-timescale.sql
 -- First, create TimescaleDB extension
-CREATE EXTENSION IF NOT EXISTS timescaledb;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "timescaledb";
 
 -- Create metrics_snapshots table first
 CREATE TABLE IF NOT EXISTS metrics_snapshots (

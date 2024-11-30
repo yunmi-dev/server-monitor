@@ -9,6 +9,7 @@ class SocialLoginButton extends StatefulWidget {
   final Color? textColor;
   final String iconPath;
   final bool isLoading;
+  final String text; // 추가된 텍스트 파라미터
 
   const SocialLoginButton({
     super.key,
@@ -16,6 +17,7 @@ class SocialLoginButton extends StatefulWidget {
     required this.onPressed,
     required this.backgroundColor,
     required this.iconPath,
+    required this.text, // 필수 파라미터로 변경
     this.textColor,
     this.isLoading = false,
   });
@@ -90,44 +92,13 @@ class _SocialLoginButtonState extends State<SocialLoginButton>
         onTapDown: _handleTapDown,
         onTapUp: _handleTapUp,
         onTapCancel: _handleTapCancel,
-        child: SizedBox(
+        child: Container(
           width: double.infinity,
-          height: 48,
-          child: Container(
-            decoration: BoxDecoration(
-              color: widget.backgroundColor,
-              borderRadius:
-                  BorderRadius.circular(AppConstants.cardBorderRadius),
-              boxShadow: [
-                if (!_isPressed)
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius:
-                  BorderRadius.circular(AppConstants.cardBorderRadius),
-              child: InkWell(
-                onTap: widget.isLoading ? null : widget.onPressed,
-                borderRadius:
-                    BorderRadius.circular(AppConstants.cardBorderRadius),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
-                  child: AspectRatio(
-                    aspectRatio: 10 / 1.5,
-                    child: Image.asset(
-                      widget.iconPath,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          height: 48, // 버튼 높이
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: Image.asset(
+            widget.iconPath,
+            fit: BoxFit.contain,
           ),
         ),
       ),

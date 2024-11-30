@@ -7,6 +7,8 @@ import 'package:flutter_client/utils/error_utils.dart';
 import 'package:flutter_client/models/time_series_data.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_client/models/time_range.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_client/models/api_response.dart';
 
 class ServerProvider with ChangeNotifier {
   final ApiService _apiService;
@@ -17,8 +19,11 @@ class ServerProvider with ChangeNotifier {
 
   ServerProvider({
     required ApiService apiService,
-  }) : _apiService = apiService {
-    _loadServers();
+  }) : _apiService = apiService; // 자동 로드 제거
+
+  // 대신 필요한 시점에 명시적으로 호출
+  Future<void> initializeData() async {
+    await loadServers();
   }
 
   List<Server> get servers => _servers;
@@ -47,6 +52,15 @@ class ServerProvider with ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
+      // 요청 데이터 로깅
+      debugPrint('서버 추가 요청 데이터: {');
+      debugPrint('  name: $name,');
+      debugPrint('  host: $host,');
+      debugPrint('  port: $port,');
+      debugPrint('  username: $username,');
+      debugPrint('  type: $type');
+      debugPrint('}');
+
       final server = await _apiService.addServer(
         name: name,
         host: host,
@@ -55,14 +69,46 @@ class ServerProvider with ChangeNotifier {
         password: password,
         type: type,
       );
+
+      // 응답 데이터 로깅
+      debugPrint('서버 응답 데이터: ${server.toJson()}');
+
       _servers.add(server);
       _error = null;
       notifyListeners();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // 에러 로깅
+      debugPrint('서버 추가 에러: $e');
+      debugPrint('스택 트레이스: $stackTrace');
       _error = ErrorUtils.getErrorMessage(e);
       rethrow;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<void> loadServers() async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      debugPrint('서버 목록 로딩 시작');
+      _servers = await _apiService.getServers();
+      debugPrint('서버 목록 로딩 완료: ${_servers.length}개');
+
+      notifyListeners();
+    } on ApiException catch (e) {
+      debugPrint('API 예외 발생: ${e.message}');
+      _error = e.message;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('예상치 못한 예외 발생: $e');
+      _error = '서버 목록을 불러오는데 실패했습니다: $e';
+      notifyListeners();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 

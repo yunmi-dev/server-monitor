@@ -45,5 +45,25 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>com.googleusercontent.apps.80682608425-1rhlgkssn2i9ilp2la5n83i7juhmipq5</string>
+            </array>
+        </dict>
+    </array>
+    <key>GIDClientID</key>
+    <string>80682608425-1rhlgkssn2i9ilp2la5n83i7juhmipq5.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+	<dict>
+		<key>CFBundleURLSchemes</key>
+		<array>
+			<string>com.example.flutterClient</string>
+		</array>
+	</dict>
+	</array>
 </dict>
 </plist>

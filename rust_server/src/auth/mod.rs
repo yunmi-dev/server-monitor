@@ -3,6 +3,7 @@ mod jwt;
 mod middleware;
 mod error;
 mod types;
+mod handlers;
 
 // pub use jwt::{create_token, verify_token, Claims};
 // pub use middleware::AuthenticationMiddleware;

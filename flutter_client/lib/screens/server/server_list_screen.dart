@@ -5,6 +5,7 @@ import 'package:flutter_client/providers/server_provider.dart';
 import 'package:flutter_client/widgets/server/server_list_item.dart';
 import 'package:flutter_client/widgets/common/search_bar.dart';
 import 'package:flutter_client/models/server.dart';
+import 'package:flutter_client/constants/route_paths.dart';
 
 class ServerListScreen extends StatefulWidget {
   const ServerListScreen({super.key});
@@ -81,7 +82,7 @@ class _ServerListScreenState extends State<ServerListScreen> {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () {
-              Navigator.pushNamed(context, '/server/add');
+              Navigator.pushNamed(context, RoutePaths.serverAdd);
             },
           ),
         ],

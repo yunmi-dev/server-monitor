@@ -59,12 +59,12 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       if (mounted) {
-        SnackBarUtils.showSuccess(context, '로그인되었습니다');
+        SnackBarUtils.showSuccess(context, AppConstants.loginSuccess);
         Navigator.pushReplacementNamed(context, '/dashboard');
       }
     } catch (e) {
       if (mounted) {
-        SnackBarUtils.showError(context, '로그인에 실패했습니다: ${e.toString()}');
+        SnackBarUtils.showError(context, e.toString());
       }
     }
   }
@@ -89,81 +89,15 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       if (mounted) {
-        SnackBarUtils.showSuccess(context, '로그인되었습니다');
         Navigator.pushReplacementNamed(context, '/dashboard');
       }
     } catch (e) {
       if (mounted) {
-        SnackBarUtils.showError(
-          context,
-          '$provider 로그인에 실패했습니다: ${e.toString()}',
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
         );
       }
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(AppConstants.spacing * 2),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight:
-                        screenHeight - MediaQuery.of(context).padding.vertical,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: AppConstants.spacing),
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Text(
-                          'FLick',
-                          style: Theme.of(context)
-                              .textTheme
-                              .displayLarge
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(height: AppConstants.spacing * 2),
-                      Text(
-                        '간편 로그인',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                            ),
-                      ),
-                      const SizedBox(height: AppConstants.spacing),
-                      _buildSocialLoginButtons(),
-                      const SizedBox(height: AppConstants.spacing),
-                      const _DividerWithText(text: '또는'),
-                      const SizedBox(height: AppConstants.spacing),
-                      _buildLoginForm(authProvider),
-                      const SizedBox(height: AppConstants.spacing / 2),
-                      _buildForgotPassword(),
-                      const SizedBox(height: AppConstants.spacing),
-                      _buildSignUpLink(),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
   }
 
   Widget _buildSocialLoginButtons() {
@@ -171,19 +105,49 @@ class _LoginScreenState extends State<LoginScreen>
       padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacing),
       child: Column(
         children: [
-          Image.asset('assets/icons/apple.png'),
+          SocialLoginButton(
+            provider: 'apple',
+            onPressed: () => _handleSocialLogin('apple'),
+            backgroundColor: Colors.black,
+            textColor: Colors.white,
+            iconPath: 'assets/icons/apple.png',
+            text: 'Apple로 계속하기',
+          ),
           const SizedBox(height: AppConstants.spacing),
-          Image.asset('assets/icons/kakao.png'),
+          SocialLoginButton(
+            provider: 'kakao',
+            onPressed: () => _handleSocialLogin('kakao'),
+            backgroundColor: const Color(0xFFFEE500),
+            textColor: Colors.black87,
+            iconPath: 'assets/icons/kakao.png',
+            text: '카카오로 계속하기',
+          ),
           const SizedBox(height: AppConstants.spacing),
-          Image.asset('assets/icons/google.png'),
+          SocialLoginButton(
+            provider: 'google',
+            onPressed: () => _handleSocialLogin('google'),
+            backgroundColor: Colors.white,
+            textColor: Colors.black87,
+            iconPath: 'assets/icons/google.png',
+            text: 'Google로 계속하기',
+          ),
           const SizedBox(height: AppConstants.spacing),
-          Image.asset('assets/icons/facebook.png'),
+          SocialLoginButton(
+            provider: 'facebook',
+            onPressed: () => _handleSocialLogin('facebook'),
+            backgroundColor: const Color(0xFF1877F2),
+            textColor: Colors.white,
+            iconPath: 'assets/icons/facebook.png',
+            text: 'Facebook으로 계속하기',
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLoginForm(AuthProvider authProvider) {
+  Widget _buildLoginForm() {
+    final authProvider = Provider.of<AuthProvider>(context);
+
     return Form(
       key: _formKey,
       child: Column(
@@ -282,39 +246,47 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildForgotPassword() {
-    return TextButton(
-      onPressed: () {
-        Navigator.pushNamed(context, '/forgot-password');
-      },
-      child: const Text(
-        '비밀번호를 잊으셨나요?',
-        style: TextStyle(color: Colors.white70),
-      ),
-    );
-  }
-
-  Widget _buildSignUpLink() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text(
-          '아직 계정이 없으신가요?',
-          style: TextStyle(color: Colors.white70),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.pushNamed(context, '/signup');
-          },
-          child: Text(
-            '회원가입하기',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(AppConstants.spacing * 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: AppConstants.spacing),
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Text(
+                    'FLick',
+                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spacing * 2),
+                Text(
+                  '간편 로그인',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                      ),
+                ),
+                const SizedBox(height: AppConstants.spacing),
+                _buildSocialLoginButtons(),
+                const SizedBox(height: AppConstants.spacing),
+                const _DividerWithText(text: '또는'),
+                const SizedBox(height: AppConstants.spacing),
+                _buildLoginForm(),
+              ],
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -322,9 +294,7 @@ class _LoginScreenState extends State<LoginScreen>
 class _DividerWithText extends StatelessWidget {
   final String text;
 
-  const _DividerWithText({
-    required this.text,
-  });
+  const _DividerWithText({required this.text});
 
   @override
   Widget build(BuildContext context) {

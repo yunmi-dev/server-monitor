@@ -60,13 +60,21 @@ fn setup_cors() -> Cors {
 }
 
 async fn setup_database() -> Result<DbPool, AppError> {
-   let database_url = std::env::var("DATABASE_URL")
-       .expect("DATABASE_URL must be set");
-   
-   db::test_connection(&database_url).await?;
-   db::create_pool().await.map_err(AppError::from)
-}
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+    
+    // 데이터베이스 연결 테스트
+    db::test_connection(&database_url).await?;
+    
+    // SQLx 마이그레이션 실행
+    sqlx::migrate!("./migrations")
+        .run(&db::create_pool().await?)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
 
+    // 풀 생성 및 반환
+    db::create_pool().await.map_err(AppError::from)
+}
 fn setup_logging() {
    tracing_subscriber::registry()
        .with(tracing_subscriber::EnvFilter::new(

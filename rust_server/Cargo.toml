@@ -40,6 +40,7 @@ sqlx = { version = "0.7", features = [
 # 인증
 jsonwebtoken = "9.1"
 bcrypt = "0.15"
+reqwest = { version = "0.11", features = ["json"] }
 
 # 시리얼라이제이션 = 직렬화/역직렬화
 serde = { version = "1.0", features = ["derive"] } #JSON

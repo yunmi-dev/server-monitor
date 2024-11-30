@@ -28,11 +28,15 @@ class ApiService {
   Dio _createDio(String baseUrl) {
     return Dio(BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 3),
+      connectTimeout: const Duration(seconds: 10), // 타임아웃 시간 증가
+      receiveTimeout: const Duration(seconds: 10),
       contentType: 'application/json',
-      responseType: ResponseType.json,
-      validateStatus: (status) => status != null && status < 500,
+      validateStatus: (status) {
+        return status != null && status < 500;
+      },
+      headers: {
+        'Accept': 'application/json',
+      },
     ));
   }
 
@@ -88,7 +92,6 @@ class ApiService {
     }
   }
 
-  // 서버 추가
   Future<Server> addServer({
     required String name,
     required String host,
@@ -113,7 +116,60 @@ class ApiService {
     );
   }
 
-  // 서버 업데이트
+  Future<List<Server>> getServers() async {
+    try {
+      debugPrint('서버 목록 조회 시작');
+      // '/api/servers' 에서 '/servers' 로 수정
+      final response = await _dio.get('/servers');
+
+      debugPrint('서버 응답: ${response.data}');
+      final apiResponse = ApiResponse.fromJson(response.data);
+
+      if (!apiResponse.success) {
+        throw ApiException(
+          message: apiResponse.message ?? '서버 목록을 불러오는데 실패했습니다',
+          code: apiResponse.code,
+        );
+      }
+
+      final List<dynamic> serversData = apiResponse.data as List;
+      return serversData.map((json) {
+        debugPrint('서버 데이터 파싱: $json');
+        return Server.fromJson(json as Map<String, dynamic>);
+      }).toList();
+    } catch (e) {
+      debugPrint('서버 목록 조회 오류: $e');
+      rethrow;
+    }
+  }
+
+  Future<Server> getServerDetails(String serverId) async {
+    try {
+      final response = await _dio.get('/servers/$serverId');
+      final apiResponse = response.data as ApiResponse;
+
+      if (!apiResponse.success) {
+        throw ApiException(
+          message: apiResponse.message ?? 'Failed to fetch server details',
+          code: apiResponse.code,
+        );
+      }
+
+      return Server.fromJson(apiResponse.data as Map<String, dynamic>);
+    } catch (e) {
+      throw ApiException(message: '서버 정보를 불러오는데 실패했습니다: ${e.toString()}');
+    }
+  }
+
+  Stream<ResourceUsage> streamServerMetrics(String serverId) {
+    return _webSocketService.messageStream
+        .where((message) =>
+            message.type == MessageType.resourceMetrics &&
+            message.data['serverId'] == serverId)
+        .map((message) => ResourceUsage.fromJson(message.data));
+  }
+
+  // 서버 `업데이트`
   Future<Server> updateServer(Server server) async {
     return _handleRequest<Server>(
       () => _dio.put(
@@ -328,29 +384,6 @@ class ApiService {
       () => _dio.get('/alerts/rules'),
       (data) => List<Map<String, dynamic>>.from(data as List),
     );
-  }
-
-  Future<List<Server>> getServers() async {
-    return _handleRequest<List<Server>>(
-      () => _dio.get('/servers'),
-      (data) => (data as List)
-          .map((json) => Server.fromJson(json as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-
-  Future<Server> getServerDetails(String serverId) async {
-    return _handleRequest<Server>(
-      () => _dio.get('/servers/$serverId'),
-      (data) => Server.fromJson(data as Map<String, dynamic>),
-    );
-  }
-
-  Stream<ResourceUsage> streamServerMetrics(String serverId) {
-    return _webSocketService.messageStream
-        .where(
-            (message) => message.type.toString() == 'server_metrics_$serverId')
-        .map((message) => ResourceUsage.fromJson(message.data));
   }
 
   Future<Response<T>> request<T>({

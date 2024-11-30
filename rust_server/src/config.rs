@@ -64,3 +64,20 @@ impl ServerConfig {
         builder.build()?.try_deserialize()
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct JwtConfig {
+    pub secret: String,
+    pub access_token_expire: i64,  // 초 단위
+    pub refresh_token_expire: i64, // 초 단위
+}
+
+impl Default for JwtConfig {
+    fn default() -> Self {
+        Self {
+            secret: "your-secret-key".to_string(), // 실제 배포시 환경변수에서 가져와야 함
+            access_token_expire: 900,     // 15분
+            refresh_token_expire: 604800, // 7일
+        }
+    }
+}

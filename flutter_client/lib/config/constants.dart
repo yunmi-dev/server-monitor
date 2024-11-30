@@ -26,6 +26,12 @@ class AppConstants {
     'zh': '中文',
   };
 
+  // 테스트용 더미 계정
+  static const Map<String, String> dummyAccounts = {
+    'abc123@naver.com': 'aabbcc123!',
+    'abc123@gmail.com': 'aabbcc123!',
+  };
+
   // Theme Settings
   static const Map<ThemeMode, String> themeModeNames = {
     ThemeMode.system: '시스템 설정',

@@ -13,6 +13,7 @@ import 'package:flutter_client/services/api_service.dart';
 import 'package:flutter_client/services/storage_service.dart';
 import 'package:flutter_client/utils/logger.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:flutter_client/config/constants.dart';
 
 part 'auth_service.freezed.dart';
 part 'auth_service.g.dart';
@@ -92,6 +93,32 @@ class AuthService extends ChangeNotifier {
 
   Future<User> signInWithEmail(String email, String password) async {
     return handleAuthRequest(() async {
+      // 개발 환경에서만 더미 인증 사용
+      if (kDebugMode) {
+        if (AppConstants.dummyAccounts.containsKey(email) &&
+            AppConstants.dummyAccounts[email] == password) {
+          // 더미 유저 데이터 생성
+          final dummyUser = User(
+            id: '1',
+            email: email,
+            name: email.split('@')[0],
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+
+          // 더미 토큰 생성
+          final dummyAuthResult = AuthResult(
+            accessToken: 'dummy_access_token',
+            refreshToken: 'dummy_refresh_token',
+            user: dummyUser,
+          );
+
+          await _handleAuthResult(dummyAuthResult);
+          return dummyUser;
+        }
+      }
+
+      // 프로덕션 환경에서는 실제 API 호출
       final response = await _apiService.request(
         path: '/auth/login',
         method: 'POST',
@@ -115,14 +142,15 @@ class AuthService extends ChangeNotifier {
       }
 
       final googleAuth = await googleUser.authentication;
+
+      // 서버로 ID 토큰 전송
       final response = await _apiService.request(
-        path: '/auth/google',
+        path: '/auth/social-login',
         method: 'POST',
         data: {
-          'token': googleAuth.idToken ?? '',
-          'name': googleUser.displayName ?? '',
+          'provider': 'google',
+          'token': googleAuth.idToken, // ID 토큰을 서버로 전송
           'email': googleUser.email,
-          'photo': googleUser.photoUrl ?? '',
         },
       );
 
@@ -134,6 +162,29 @@ class AuthService extends ChangeNotifier {
 
   Future<User> signInWithApple() async {
     return handleAuthRequest(() async {
+      // 개발용 Mock 응답
+      if (kDebugMode) {
+        // 더미 유저 데이터 생성
+        final dummyUser = User(
+          id: 'apple_mock_id',
+          email: 'apple_user@example.com',
+          name: 'Apple User',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        // 더미 인증 결과 생성
+        final dummyAuthResult = AuthResult(
+          accessToken: 'dummy_apple_access_token',
+          refreshToken: 'dummy_apple_refresh_token',
+          user: dummyUser,
+        );
+
+        await _handleAuthResult(dummyAuthResult);
+        return dummyUser;
+      }
+
+      // 프로덕션 환경을 위한 구현 그대로 유지
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
@@ -142,15 +193,12 @@ class AuthService extends ChangeNotifier {
       );
 
       final response = await _apiService.request(
-        path: '/auth/apple',
+        path: '/auth/social-login',
         method: 'POST',
         data: {
+          'provider': 'apple',
           'token': credential.identityToken ?? '',
-          'name': [
-            credential.givenName,
-            credential.familyName,
-          ].where((e) => e != null).join(' '),
-          'email': credential.email ?? '',
+          'email': credential.email,
         },
       );
 
@@ -174,17 +222,12 @@ class AuthService extends ChangeNotifier {
         throw AuthException('Failed to get Kakao access token');
       }
 
-      // 카카오 사용자 정보 가져오기
-      final user = await kakao.UserApi.instance.me();
-
       final response = await _apiService.request(
-        path: '/auth/kakao',
+        path: '/auth/social-login', // URL 변경
         method: 'POST',
         data: {
+          'provider': 'kakao', // provider 필드 추가
           'token': token!.accessToken,
-          'name': user.kakaoAccount?.profile?.nickname ?? '',
-          'email': user.kakaoAccount?.email ?? '',
-          'photo': user.kakaoAccount?.profile?.profileImageUrl ?? '',
         },
       );
 
@@ -204,17 +247,12 @@ class AuthService extends ChangeNotifier {
         throw AuthException('Failed to get Facebook access token');
       }
 
-      // accessToken을 문자열로 변환
-      final userData = await FacebookAuth.instance.getUserData();
-
       final response = await _apiService.request(
-        path: '/auth/facebook',
+        path: '/auth/social-login',
         method: 'POST',
         data: {
+          'provider': 'facebook',
           'token': result.accessToken!.toString(),
-          'name': userData['name'],
-          'email': userData['email'],
-          'photo': userData['picture']?['data']?['url'],
         },
       );
 
