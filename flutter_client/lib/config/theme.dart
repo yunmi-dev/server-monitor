@@ -6,37 +6,39 @@ class AppTheme {
   static ThemeData darkTheme() {
     return ThemeData.dark().copyWith(
       colorScheme: const ColorScheme.dark(
-        primary: Color(0xFFE91E63), // Pink
-        secondary: Color(0xFF2196F3), // Blue
-        surface: Color(0xFF1E1E1E), // 아니면 Color(0xFF121212)
-        error: Color(0xFFCF6679), // Pink-Red
+        primary: Color(0xFFFF4099), // Main Color (FFC0DE)
+        secondary: Color(0xFFFFC0DE), // Accent Color (FF4099)
+        surface: Color(0xFF121212), // Background (121212)
+        error: Color(0xFFCF6679), // Error Color
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: Colors.white,
         onError: Colors.black,
       ),
-      scaffoldBackgroundColor: Colors.black,
+      scaffoldBackgroundColor: const Color(0xFF121212), // Background Color
       cardTheme: CardTheme(
-        color: const Color(0xFF1E1E1E),
+        color: const Color(0xFF1E1E1E), // 카드 배경 색상
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
         ),
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Color(0xFF121212), // Match background
         elevation: 0,
         centerTitle: true,
-        foregroundColor: Colors.white,
+        foregroundColor: Colors.white, // AppBar text/icon color
       ),
       buttonTheme: ButtonThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
         ),
-        buttonColor: const Color(0xFFE91E63),
+        buttonColor: const Color(0xFFFF4099), // Button Main Color
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFF4099), // Button Main Color
+          foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: AppConstants.spacing * 2,

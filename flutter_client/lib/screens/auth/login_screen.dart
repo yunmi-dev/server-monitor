@@ -113,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen>
             iconPath: 'assets/icons/apple.png',
             text: 'Apple로 계속하기',
           ),
-          const SizedBox(height: AppConstants.spacing),
+          const SizedBox(height: 8),
           SocialLoginButton(
             provider: 'kakao',
             onPressed: () => _handleSocialLogin('kakao'),
@@ -122,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen>
             iconPath: 'assets/icons/kakao.png',
             text: '카카오로 계속하기',
           ),
-          const SizedBox(height: AppConstants.spacing),
+          const SizedBox(height: 8),
           SocialLoginButton(
             provider: 'google',
             onPressed: () => _handleSocialLogin('google'),
@@ -131,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen>
             iconPath: 'assets/icons/google.png',
             text: 'Google로 계속하기',
           ),
-          const SizedBox(height: AppConstants.spacing),
+          const SizedBox(height: 8),
           SocialLoginButton(
             provider: 'facebook',
             onPressed: () => _handleSocialLogin('facebook'),
@@ -238,7 +238,14 @@ class _LoginScreenState extends State<LoginScreen>
                         strokeWidth: 2,
                       ),
                     )
-                  : const Text('로그인'),
+                  : const Text(
+                      '로그인',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500, // 글자 두께 지정
+                      ),
+                    ),
             ),
           ),
         ],
