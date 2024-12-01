@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_client/config/constants.dart';
+import 'package:flutter_client/providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -72,13 +74,44 @@ class _SignupScreenState extends State<SignupScreen> {
       children: [
         TextFormField(
           controller: _nameController,
-          decoration: const InputDecoration(
+          keyboardType: TextInputType.name,
+          textInputAction: TextInputAction.next,
+          onEditingComplete: () => FocusScope.of(context).nextFocus(),
+          decoration: InputDecoration(
             labelText: '이름',
-            prefixIcon: Icon(Icons.person_outline),
+            prefixIcon: Icon(
+              Icons.person_outline,
+              color: Colors.white.withOpacity(0.5),
+            ),
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.1),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide:
+                  BorderSide(color: Theme.of(context).colorScheme.primary),
+            ),
+            labelStyle: TextStyle(
+              color: Colors.white.withOpacity(0.5),
+            ),
+            hintStyle: TextStyle(
+              color: Colors.white.withOpacity(0.3),
+            ),
           ),
+          style: const TextStyle(color: Colors.white),
           validator: (value) {
-            if (value == null || value.isEmpty) {
+            if (value == null || value.trim().isEmpty) {
               return '이름을 입력해주세요';
+            }
+            if (value.length < 2) {
+              return '이름은 2자 이상이어야 합니다';
             }
             return null;
           },
@@ -86,16 +119,44 @@ class _SignupScreenState extends State<SignupScreen> {
         const SizedBox(height: AppConstants.spacing),
         TextFormField(
           controller: _emailController,
-          decoration: const InputDecoration(
-            labelText: '이메일',
-            prefixIcon: Icon(Icons.email_outlined),
-          ),
           keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          onEditingComplete: () => FocusScope.of(context).nextFocus(),
+          decoration: InputDecoration(
+            labelText: '이메일',
+            prefixIcon: Icon(
+              Icons.email_outlined,
+              color: Colors.white.withOpacity(0.5),
+            ),
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.1),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide:
+                  BorderSide(color: Theme.of(context).colorScheme.primary),
+            ),
+            labelStyle: TextStyle(
+              color: Colors.white.withOpacity(0.5),
+            ),
+            hintStyle: TextStyle(
+              color: Colors.white.withOpacity(0.3),
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
           validator: (value) {
-            if (value == null || value.isEmpty) {
+            if (value == null || value.trim().isEmpty) {
               return '이메일을 입력해주세요';
             }
-            if (!RegExp(AppConstants.emailRegex).hasMatch(value)) {
+            if (!RegExp(r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+')
+                .hasMatch(value)) {
               return '올바른 이메일 형식이 아닙니다';
             }
             return null;
@@ -104,14 +165,21 @@ class _SignupScreenState extends State<SignupScreen> {
         const SizedBox(height: AppConstants.spacing),
         TextFormField(
           controller: _passwordController,
+          keyboardType: TextInputType.visiblePassword,
+          textInputAction: TextInputAction.next,
+          onEditingComplete: () => FocusScope.of(context).nextFocus(),
           decoration: InputDecoration(
             labelText: '비밀번호',
-            prefixIcon: const Icon(Icons.lock_outline),
+            prefixIcon: Icon(
+              Icons.lock_outline,
+              color: Colors.white.withOpacity(0.5),
+            ),
             suffixIcon: IconButton(
               icon: Icon(
                 _isPasswordVisible
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
+                color: Colors.white.withOpacity(0.5),
               ),
               onPressed: () {
                 setState(() {
@@ -119,16 +187,40 @@ class _SignupScreenState extends State<SignupScreen> {
                 });
               },
             ),
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.1),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide:
+                  BorderSide(color: Theme.of(context).colorScheme.primary),
+            ),
+            labelStyle: TextStyle(
+              color: Colors.white.withOpacity(0.5),
+            ),
+            hintStyle: TextStyle(
+              color: Colors.white.withOpacity(0.3),
+            ),
           ),
+          style: const TextStyle(color: Colors.white),
           obscureText: !_isPasswordVisible,
           validator: (value) {
-            if (value == null || value.isEmpty) {
+            if (value == null || value.trim().isEmpty) {
               return '비밀번호를 입력해주세요';
             }
-            if (value.length < AppConstants.minPasswordLength) {
-              return '비밀번호는 ${AppConstants.minPasswordLength}자 이상이어야 합니다';
+            if (value.length < 8) {
+              return '비밀번호는 8자 이상이어야 합니다';
             }
-            if (!RegExp(AppConstants.passwordRegex).hasMatch(value)) {
+            if (!RegExp(
+                    r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]')
+                .hasMatch(value)) {
               return '비밀번호는 영문, 숫자, 특수문자를 포함해야 합니다';
             }
             return null;
@@ -137,14 +229,21 @@ class _SignupScreenState extends State<SignupScreen> {
         const SizedBox(height: AppConstants.spacing),
         TextFormField(
           controller: _confirmPasswordController,
+          keyboardType: TextInputType.visiblePassword,
+          textInputAction: TextInputAction.done,
+          onEditingComplete: () => FocusScope.of(context).unfocus(),
           decoration: InputDecoration(
             labelText: '비밀번호 확인',
-            prefixIcon: const Icon(Icons.lock_outline),
+            prefixIcon: Icon(
+              Icons.lock_outline,
+              color: Colors.white.withOpacity(0.5),
+            ),
             suffixIcon: IconButton(
               icon: Icon(
                 _isConfirmPasswordVisible
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
+                color: Colors.white.withOpacity(0.5),
               ),
               onPressed: () {
                 setState(() {
@@ -152,10 +251,32 @@ class _SignupScreenState extends State<SignupScreen> {
                 });
               },
             ),
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.1),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide:
+                  BorderSide(color: Theme.of(context).colorScheme.primary),
+            ),
+            labelStyle: TextStyle(
+              color: Colors.white.withOpacity(0.5),
+            ),
+            hintStyle: TextStyle(
+              color: Colors.white.withOpacity(0.3),
+            ),
           ),
+          style: const TextStyle(color: Colors.white),
           obscureText: !_isConfirmPasswordVisible,
           validator: (value) {
-            if (value == null || value.isEmpty) {
+            if (value == null || value.trim().isEmpty) {
               return '비밀번호를 다시 입력해주세요';
             }
             if (value != _passwordController.text) {
@@ -218,19 +339,39 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Widget _buildSignupButton() {
+    final authProvider = Provider.of<AuthProvider>(context);
+
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _agreedToTerms ? _handleSignup : null,
+        onPressed: authProvider.isLoading ? null : _handleSignup,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: _agreedToTerms
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.primary.withOpacity(0.5),
           padding: const EdgeInsets.symmetric(
             vertical: AppConstants.spacing,
           ),
-          disabledBackgroundColor:
-              Theme.of(context).colorScheme.primary.withOpacity(0.5),
         ),
-        child: const Text('회원가입'),
+        child: authProvider.isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                '회원가입',
+                style: TextStyle(
+                  color: _agreedToTerms
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.5),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
       ),
     );
   }
@@ -259,9 +400,55 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  void _handleSignup() {
-    if (_formKey.currentState?.validate() ?? false) {
-      // Implement signup logic
+  Future<void> _handleSignup() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('이용약관과 개인정보 처리방침에 동의해주세요'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      // 회원가입 진행
+      await authProvider.signUp(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      // 성공 메시지 표시
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('회원가입이 완료되었습니다'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // 로그인 화면으로 이동
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      // 에러 메시지 표시
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().contains('Exception:')
+              ? e.toString().split('Exception:')[1].trim()
+              : '회원가입 중 오류가 발생했습니다'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

@@ -80,6 +80,11 @@ dependencies:
   vector_math: ^2.1.4
   image_picker: ^1.1.2
 
+  # 코드 커버리지
+  flutter_svg: ^2.0.9
+  
+  flutter_keyboard_visibility: ^5.4.1
+
 
 dev_dependencies:
   flutter_test:
@@ -100,6 +105,8 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
+
+
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

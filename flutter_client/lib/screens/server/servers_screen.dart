@@ -176,6 +176,7 @@ class _ServersScreenState extends State<ServersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -193,21 +194,33 @@ class _ServersScreenState extends State<ServersScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          _buildFilterChips(),
-          Expanded(
-            child: _buildServerList(),
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 키보드가 올라올 때의 패딩 조정
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                children: [
+                  _buildSearchBar(),
+                  _buildFilterChips(),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _buildServerList(),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), // top 패딩 제거
       child: TextField(
         onChanged: (value) {
           setState(() {

@@ -68,7 +68,7 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
           borderSide: const BorderSide(
-            color: Color(0xFFE91E63),
+            color: Color.fromARGB(255, 247, 112, 175),
             width: 2,
           ),
         ),
@@ -128,28 +128,30 @@ class AppTheme {
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Color(0xFFE91E63);
+            return const Color.fromARGB(255, 247, 112, 175);
           }
           return Colors.grey;
         }),
         trackColor: WidgetStateProperty.resolveWith<Color>((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Color(0xFFE91E63).withOpacity(0.5);
+            return const Color.fromARGB(255, 247, 112, 175).withOpacity(0.5);
           }
           return Colors.grey.withOpacity(0.5);
         }),
       ),
       sliderTheme: const SliderThemeData(
-        activeTrackColor: Color(0xFFE91E63),
+        activeTrackColor: Color.fromARGB(255, 247, 112, 175),
         inactiveTrackColor: Colors.grey,
-        thumbColor: Color(0xFFE91E63),
+        thumbColor: Color.fromARGB(255, 247, 112, 175),
         overlayColor: Color(0x29E91E63),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.transparent,
         disabledColor: Colors.grey.withOpacity(0.1),
-        selectedColor: const Color(0xFFE91E63).withOpacity(0.2),
-        secondarySelectedColor: const Color(0xFFE91E63).withOpacity(0.2),
+        selectedColor:
+            const Color.fromARGB(255, 247, 112, 175).withOpacity(0.2),
+        secondarySelectedColor:
+            const Color.fromARGB(255, 247, 112, 175).withOpacity(0.2),
         padding: const EdgeInsets.all(AppConstants.spacing / 2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
@@ -157,7 +159,7 @@ class AppTheme {
         ),
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: Color(0xFFE91E63),
+        color: Color.fromARGB(255, 247, 112, 175),
       ),
     );
   }

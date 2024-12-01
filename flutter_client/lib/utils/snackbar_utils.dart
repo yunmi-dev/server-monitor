@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 
 class SnackBarUtils {
+  static const Color _primaryColor = Color.fromARGB(255, 247, 112, 175);
+
   static void showSuccess(
     BuildContext context,
     String message, {
@@ -10,8 +12,8 @@ class SnackBarUtils {
     _showSnackBar(
       context,
       message,
-      Icons.check_circle_outline,
-      Colors.green,
+      Icons.check_circle_rounded,
+      _primaryColor,
       duration,
     );
   }
@@ -24,8 +26,8 @@ class SnackBarUtils {
     _showSnackBar(
       context,
       message,
-      Icons.error_outline,
-      Colors.red,
+      Icons.error_rounded,
+      Colors.redAccent,
       duration,
     );
   }
@@ -38,8 +40,8 @@ class SnackBarUtils {
     _showSnackBar(
       context,
       message,
-      Icons.warning_amber_outlined,
-      Colors.orange,
+      Icons.warning_rounded,
+      Colors.orangeAccent,
       duration,
     );
   }
@@ -52,8 +54,8 @@ class SnackBarUtils {
     _showSnackBar(
       context,
       message,
-      Icons.info_outline,
-      Colors.blue,
+      Icons.info_rounded,
+      Colors.blueAccent,
       duration,
     );
   }
@@ -68,26 +70,46 @@ class SnackBarUtils {
     final snackBar = SnackBar(
       content: Row(
         children: [
-          Icon(icon, color: Colors.white),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(
+              icon,
+              color: _primaryColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
       ),
-      backgroundColor: color,
+      backgroundColor: Colors.grey[850]?.withOpacity(0.98),
       behavior: SnackBarBehavior.floating,
       duration: duration,
-      action: SnackBarAction(
-        label: '닫기',
-        textColor: Colors.white,
-        onPressed: () {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        },
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
       ),
+      margin: EdgeInsets.symmetric(
+        horizontal: MediaQuery.of(context).size.width * 0.1,
+        vertical: 12,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
+      elevation: 1,
     );
 
     ScaffoldMessenger.of(context)

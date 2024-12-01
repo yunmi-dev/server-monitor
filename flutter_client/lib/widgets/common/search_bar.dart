@@ -9,6 +9,7 @@ class CustomSearchBar extends StatefulWidget {
   final List<String>? filters;
   final bool showFilterButton;
   final TextEditingController? controller;
+  final ValueChanged<bool>? onFocusChanged;
 
   const CustomSearchBar({
     super.key,
@@ -18,6 +19,7 @@ class CustomSearchBar extends StatefulWidget {
     this.filters,
     this.showFilterButton = true,
     this.controller,
+    this.onFocusChanged,
   });
 
   @override
@@ -59,6 +61,7 @@ class _CustomSearchBarState extends State<CustomSearchBar>
     } else {
       _animationController.reverse();
     }
+    widget.onFocusChanged?.call(_isFocused);
   }
 
   @override

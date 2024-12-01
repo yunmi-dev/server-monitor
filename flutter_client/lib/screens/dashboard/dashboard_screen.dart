@@ -9,6 +9,7 @@ import 'package:flutter_client/screens/alerts/alerts_screen.dart';
 import 'package:flutter_client/screens/stats/stats_screen.dart';
 import 'package:flutter_client/screens/server/servers_screen.dart';
 import 'package:flutter_client/screens/settings/settings_screen.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,6 +20,14 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  bool _isKeyboardVisible = false;
+  final _navigatorKeys = {
+    0: GlobalKey<NavigatorState>(),
+    1: GlobalKey<NavigatorState>(),
+    2: GlobalKey<NavigatorState>(),
+    3: GlobalKey<NavigatorState>(),
+    4: GlobalKey<NavigatorState>(),
+  };
 
   final List<Widget> _screens = const [
     DashboardView(),
@@ -29,48 +38,127 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    KeyboardVisibilityController().onChange.listen((bool visible) {
+      setState(() {
+        _isKeyboardVisible = visible;
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: Colors.grey[900],
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '홈',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.insert_chart_outlined),
-            selectedIcon: Icon(Icons.insert_chart),
-            label: '통계',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.computer_outlined),
-            selectedIcon: Icon(Icons.computer),
-            label: '서버',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: '알림',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu),
-            selectedIcon: Icon(Icons.menu),
-            label: '메뉴',
-          ),
-        ],
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final navigator = _navigatorKeys[_selectedIndex]?.currentState;
+        if (navigator == null) return;
+        await navigator.maybePop();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: _screens,
+              ),
+            ),
+            if (!_isKeyboardVisible)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  color: Colors.grey[900],
+                  child: SafeArea(
+                    top: false,
+                    child: SizedBox(
+                      height: 60,
+                      child: BottomNavigationBar(
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        currentIndex: _selectedIndex,
+                        selectedItemColor: const Color(0xFFEE477C),
+                        unselectedItemColor: Colors.grey,
+                        type: BottomNavigationBarType.fixed,
+                        selectedFontSize: 11,
+                        unselectedFontSize: 11,
+                        iconSize: 24,
+                        showUnselectedLabels: true,
+                        onTap: (index) {
+                          setState(() {
+                            _selectedIndex = index;
+                          });
+                        },
+                        items: const [
+                          BottomNavigationBarItem(
+                            icon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.cottage_outlined),
+                            ),
+                            activeIcon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.cottage_rounded),
+                            ),
+                            label: '홈',
+                          ),
+                          BottomNavigationBarItem(
+                            icon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.show_chart),
+                            ),
+                            activeIcon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.show_chart),
+                            ),
+                            label: '통계',
+                          ),
+                          BottomNavigationBarItem(
+                            icon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.dns_outlined),
+                            ),
+                            activeIcon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.dns_rounded),
+                            ),
+                            label: '서버',
+                          ),
+                          BottomNavigationBarItem(
+                            icon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.notifications_outlined),
+                            ),
+                            activeIcon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.notifications_rounded),
+                            ),
+                            label: '알림',
+                          ),
+                          BottomNavigationBarItem(
+                            icon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.segment),
+                            ),
+                            activeIcon: Padding(
+                              padding: EdgeInsets.only(bottom: 3),
+                              child: Icon(Icons.segment_rounded),
+                            ),
+                            label: '메뉴',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

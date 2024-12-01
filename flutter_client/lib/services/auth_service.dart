@@ -268,6 +268,29 @@ class AuthService extends ChangeNotifier {
     required String password,
   }) async {
     return handleAuthRequest(() async {
+      // 개발 환경인 경우 더미 응답 사용
+      if (kDebugMode) {
+        // 더미 유저 데이터 생성
+        final dummyUser = User(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          email: email,
+          name: name,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        // 더미 인증 결과 생성
+        final dummyAuthResult = AuthResult(
+          accessToken: 'dummy_access_token_${dummyUser.id}',
+          refreshToken: 'dummy_refresh_token_${dummyUser.id}',
+          user: dummyUser,
+        );
+
+        await _handleAuthResult(dummyAuthResult);
+        return dummyUser;
+      }
+
+      // 프로덕션 환경에서는 실제 API 호출
       final response = await _apiService.request(
         path: '/auth/register',
         method: 'POST',

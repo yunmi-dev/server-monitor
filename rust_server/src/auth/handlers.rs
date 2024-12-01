@@ -26,6 +26,44 @@ pub async fn social_login(
     }
 }
 
+#[post("/auth/register")]
+pub async fn register(
+    req: web::Json<RegisterRequest>,
+    repo: web::Data<Repository>,
+    config: web::Data<AppConfig>,
+) -> Result<HttpResponse, AppError> {
+    // 이미 존재하는 이메일인지 확인
+    if let Some(_) = repo.find_user_by_email(&req.email).await? {
+        return Err(AppError::BadRequest("Email already exists".into()));
+    }
+
+    // 비밀번호 해시화
+    let password_hash = hash_password(&req.password)?;
+
+    // 새 유저 생성
+    let new_user = User {
+        id: uuid::Uuid::new_v4().to_string(),
+        email: req.email.clone(),
+        password_hash: Some(password_hash),
+        name: req.name.clone(),
+        role: UserRole::User,
+        provider: AuthProvider::Email,
+        profile_image_url: None,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+        last_login_at: Some(Utc::now()),
+    };
+
+    let user = repo.create_user(new_user).await?;
+    let tokens = generate_tokens(&user, &config)?;
+
+    Ok(HttpResponse::Ok().json(AuthResponse {
+        access_token: tokens.0,
+        refresh_token: tokens.1,
+        user: user.into(),
+    }))
+}
+
 async fn handle_google_login(
     req: SocialLoginRequest,
     repo: web::Data<Repository>,

@@ -1,6 +1,6 @@
 // src/api/routes.rs
 use actix_web::web;
-use super::{servers, health, alerts};
+use super::{servers, health, alerts, auth};
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
