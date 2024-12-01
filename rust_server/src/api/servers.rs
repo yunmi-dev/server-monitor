@@ -1,8 +1,18 @@
 // src/api/servers.rs
 use actix_web::{web, HttpResponse, Result};
-use chrono::{Utc, DateTime};
+use chrono::Utc;
 use uuid::Uuid;
 use crate::db::{models::{Server, ServerType}, repository::Repository};
+
+#[derive(serde::Deserialize)]
+pub struct CreateServerRequest {
+    pub name: String,
+    pub host: String,  // Changed from hostname
+    pub port: i32,     // Added
+    pub username: String, // Added
+    pub password: String, // Added
+    pub server_type: ServerType,
+}
 
 pub async fn create_server(
     repo: web::Data<Repository>,
@@ -11,9 +21,9 @@ pub async fn create_server(
     let server = Server {
         id: Uuid::new_v4().to_string(),
         name: server_info.name.clone(),
-        hostname: server_info.hostname.clone(),
-        ip_address: server_info.ip_address.clone(),
-        location: server_info.location.clone(),
+        hostname: server_info.host.clone(),  // Using host as hostname
+        ip_address: server_info.host.clone(), // Using host as IP for now
+        location: "Unknown".to_string(),      // Default value
         server_type: server_info.server_type.clone(),
         is_online: false,
         created_at: Utc::now(),
@@ -57,6 +67,17 @@ pub async fn update_server_status(
         .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
 
     Ok(HttpResponse::Ok().finish())
+}
+
+// Add delete server endpoint
+pub async fn delete_server(
+    repo: web::Data<Repository>,
+    server_id: web::Path<String>,
+) -> Result<HttpResponse> {
+    repo.delete_server(&server_id).await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    Ok(HttpResponse::NoContent().finish())
 }
 
 #[derive(serde::Deserialize)]

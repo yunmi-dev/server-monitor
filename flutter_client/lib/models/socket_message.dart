@@ -37,7 +37,10 @@ enum MessageType {
   pong,
 
   @JsonValue('log')
-  log; // 추가된 log 타입
+  log,
+
+  @JsonValue('unknown')
+  unknown; // 추가된 unknown 타입
 
   String get value => _$MessageTypeEnumMap[this]!;
 }

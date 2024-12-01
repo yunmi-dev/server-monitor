@@ -14,11 +14,43 @@ class WebSocketService {
   final _messageController = StreamController<SocketMessage>.broadcast();
   Timer? _reconnectTimer;
   Timer? _pingTimer;
+  final Set<String> _subscribedServers = {}; // 구독 중인 서버 ID 추적
 
   WebSocketService._internal();
 
   bool get isConnected => _isConnected;
   Stream<SocketMessage> get messageStream => _messageController.stream;
+
+  // 서버 메트릭스 구독 메서드 추가
+  void subscribeToServerMetrics(String serverId) {
+    if (_subscribedServers.contains(serverId)) return;
+
+    sendMessage('subscribe', {
+      'topic': 'server.metrics',
+      'serverId': serverId,
+    });
+    _subscribedServers.add(serverId);
+    logger.info('Subscribed to metrics for server: $serverId');
+  }
+
+  // 서버 메트릭스 구독 취소 메서드 추가
+  void unsubscribeFromServerMetrics(String serverId) {
+    if (!_subscribedServers.contains(serverId)) return;
+
+    sendMessage('unsubscribe', {
+      'topic': 'server.metrics',
+      'serverId': serverId,
+    });
+    _subscribedServers.remove(serverId);
+    logger.info('Unsubscribed from metrics for server: $serverId');
+  }
+
+  // 재연결 시 모든 구독 복구
+  void _restoreSubscriptions() {
+    for (final serverId in _subscribedServers) {
+      subscribeToServerMetrics(serverId);
+    }
+  }
 
   Future<void> connect() async {
     if (_isConnected) return;
@@ -37,6 +69,7 @@ class WebSocketService {
       );
 
       _startPingTimer();
+      _restoreSubscriptions(); // 연결 후 구독 복구
       logger.info('WebSocket connected');
     } catch (e) {
       logger.error('WebSocket connection failed: $e');
@@ -83,7 +116,7 @@ class WebSocketService {
 
   void _sendPing() {
     if (_isConnected) {
-      _channel?.sink.add('ping');
+      sendMessage('ping', {'timestamp': DateTime.now().toIso8601String()});
     }
   }
 
@@ -93,19 +126,28 @@ class WebSocketService {
       return;
     }
 
-    final message = SocketMessage(
-      type: MessageType.values
-          .firstWhere((e) => e.toString() == 'MessageType.$type'), // 일단 이렇게 수정
-      data: data,
-      timestamp: DateTime.now(),
-    );
+    try {
+      final message = SocketMessage(
+        type: MessageType.values.firstWhere(
+          (e) =>
+              e.toString().split('.').last.toLowerCase() == type.toLowerCase(),
+          orElse: () => MessageType.unknown,
+        ),
+        data: data,
+        timestamp: DateTime.now(),
+      );
 
-    _channel?.sink.add(message.toJson());
+      _channel?.sink.add(message.toJson());
+      logger.debug('Sent WebSocket message: ${message.toJson()}');
+    } catch (e) {
+      logger.error('Failed to send WebSocket message: $e');
+    }
   }
 
   Future<void> disconnect() async {
     _pingTimer?.cancel();
     _reconnectTimer?.cancel();
+    _subscribedServers.clear(); // 구독 목록 초기화
     await _channel?.sink.close();
     _isConnected = false;
   }

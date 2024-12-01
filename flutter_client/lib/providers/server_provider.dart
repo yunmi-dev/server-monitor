@@ -9,9 +9,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_client/models/time_range.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_client/models/api_response.dart';
+import 'dart:async';
+import 'package:flutter_client/services/websocket_service.dart';
 
 class ServerProvider with ChangeNotifier {
   final ApiService _apiService;
+  final WebSocketService _webSocketService; // 추가
 
   List<Server> _servers = [];
   bool _isLoading = false;
@@ -19,7 +22,9 @@ class ServerProvider with ChangeNotifier {
 
   ServerProvider({
     required ApiService apiService,
-  }) : _apiService = apiService; // 자동 로드 제거
+    required WebSocketService webSocketService, // 생성자 매개변수 추가
+  })  : _apiService = apiService,
+        _webSocketService = webSocketService;
 
   // 대신 필요한 시점에 명시적으로 호출
   Future<void> initializeData() async {
@@ -52,7 +57,6 @@ class ServerProvider with ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      // 요청 데이터 로깅
       debugPrint('서버 추가 요청 데이터: {');
       debugPrint('  name: $name,');
       debugPrint('  host: $host,');
@@ -73,11 +77,21 @@ class ServerProvider with ChangeNotifier {
       // 응답 데이터 로깅
       debugPrint('서버 응답 데이터: ${server.toJson()}');
 
+      // 서버 목록에 추가
       _servers.add(server);
+
+      // WebSocket 연결 설정
+      _webSocketService.subscribeToServerMetrics(server.id);
+
+      // 서버 상태 모니터링 시작
+      _startServerMonitoring(server.id);
+
+      // 전체 서버 목록 새로고침
+      await loadServers();
+
       _error = null;
       notifyListeners();
     } catch (e, stackTrace) {
-      // 에러 로깅
       debugPrint('서버 추가 에러: $e');
       debugPrint('스택 트레이스: $stackTrace');
       _error = ErrorUtils.getErrorMessage(e);
@@ -85,6 +99,17 @@ class ServerProvider with ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  void _startServerMonitoring(String serverId) {
+    // 서버 상태 주기적 체크
+    Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_servers.any((s) => s.id == serverId)) {
+        refreshServerStatus(serverId);
+      } else {
+        timer.cancel();
+      }
+    });
   }
 
   Future<void> loadServers() async {
@@ -135,6 +160,10 @@ class ServerProvider with ChangeNotifier {
     try {
       await _apiService.deleteServer(serverId);
       _servers.removeWhere((server) => server.id == serverId);
+
+      // WebSocket 구독 취소
+      _webSocketService.unsubscribeFromServerMetrics(serverId);
+
       _error = null;
       notifyListeners();
     } catch (e) {

@@ -80,6 +80,38 @@ impl Repository {
         Ok(results)
     }
 
+
+    pub async fn delete_server(&self, id: &str) -> Result<()> {
+        sqlx::query!(
+            r#"
+            DELETE FROM servers
+            WHERE id = $1
+            "#,
+            id
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn create_initial_metrics(&self, server_id: &str) -> Result<()> {
+        let initial_snapshot = MetricsSnapshot {
+            id: 0,  // Will be set by DB
+            server_id: server_id.to_string(),
+            cpu_usage: 0.0,
+            memory_usage: 0.0,
+            disk_usage: 0.0,
+            network_rx: 0.0,
+            network_tx: 0.0,
+            processes: serde_json::json!([]),
+            timestamp: Utc::now(),
+        };
+
+        self.save_metrics(initial_snapshot).await?;
+        Ok(())
+    }
+
     pub async fn save_metrics(&self, snapshot: MetricsSnapshot) -> Result<i64> {
         let result = sqlx::query!(
             r#"

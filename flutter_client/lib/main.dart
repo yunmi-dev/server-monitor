@@ -14,6 +14,7 @@ import 'package:flutter_client/providers/theme_provider.dart';
 import 'package:flutter_client/services/log_service.dart';
 import 'package:flutter_client/providers/log_provider.dart';
 import 'package:flutter_client/providers/alert_provider.dart';
+import 'package:flutter_client/services/websocket_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,10 @@ void main() async {
   );
   final logService = LogService(apiService: apiService);
 
+  // WebSocket 서비스 초기화 및 연결
+  final webSocketService = WebSocketService.instance;
+  await webSocketService.connect(); // WebSocket 연결 시작
+
   // 프로바이더 설정 및 앱 실행
   runApp(
     MultiProvider(
@@ -50,15 +55,13 @@ void main() async {
           )..initialize(),
         ),
         ChangeNotifierProvider(
-          create: (context) => ServerProvider(apiService: apiService),
+          create: (context) => ServerProvider(
+            apiService: apiService,
+            webSocketService: webSocketService, // WebSocketService 주입
+          ),
         ),
         Provider<LogService>(
           create: (_) => logService,
-        ),
-        ChangeNotifierProvider(
-          create: (context) => LogProvider(
-            logService: logService,
-          ),
         ),
         ChangeNotifierProvider(
           create: (context) => LogProvider(

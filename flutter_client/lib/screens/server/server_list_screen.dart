@@ -19,7 +19,7 @@ class _ServerListScreenState extends State<ServerListScreen> {
   final List<String> _selectedFilters = [];
   List<Server> _filteredServers = [];
   int _selectedIndex = 2;
-  bool _showBottomBar = true;
+  //bool _showBottomBar = true;
 
   @override
   void dispose() {

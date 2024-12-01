@@ -15,6 +15,7 @@ import 'package:flutter_client/models/log_entry.dart';
 class ApiService {
   late final Dio _dio;
   final WebSocketService _webSocketService;
+  static const String API_PREFIX = '/api';
 
   ApiService({
     required String baseUrl,
@@ -102,14 +103,14 @@ class ApiService {
   }) async {
     return _handleRequest<Server>(
       () => _dio.post(
-        '/servers',
+        '$API_PREFIX/servers', // URL 수정
         data: {
           'name': name,
           'host': host,
           'port': port,
           'username': username,
           'password': password,
-          'type': type,
+          'server_type': type,
         },
       ),
       (data) => Server.fromJson(data as Map<String, dynamic>),
@@ -119,8 +120,7 @@ class ApiService {
   Future<List<Server>> getServers() async {
     try {
       debugPrint('서버 목록 조회 시작');
-      // '/api/servers' 에서 '/servers' 로 수정
-      final response = await _dio.get('/servers');
+      final response = await _dio.get('$API_PREFIX/servers'); // URL 수정
 
       debugPrint('서버 응답: ${response.data}');
       final apiResponse = ApiResponse.fromJson(response.data);
