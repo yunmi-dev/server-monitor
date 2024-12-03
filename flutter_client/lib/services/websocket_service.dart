@@ -11,55 +11,90 @@ class WebSocketService {
 
   WebSocketChannel? _channel;
   bool _isConnected = false;
+  bool _isConnecting = false;
   final _messageController = StreamController<SocketMessage>.broadcast();
   Timer? _reconnectTimer;
   Timer? _pingTimer;
-  final Set<String> _subscribedServers = {}; // 구독 중인 서버 ID 추적
+  final Set<String> _subscribedServers = {};
+  int _reconnectAttempts = 0;
+  static const int maxReconnectAttempts = 5;
+  static const Duration initialReconnectDelay = Duration(seconds: 1);
+  static const Duration maxReconnectDelay = Duration(seconds: 30);
 
   WebSocketService._internal();
 
   bool get isConnected => _isConnected;
   Stream<SocketMessage> get messageStream => _messageController.stream;
 
-  // 서버 메트릭스 구독 메서드 추가
   void subscribeToServerMetrics(String serverId) {
     if (_subscribedServers.contains(serverId)) return;
 
-    sendMessage('subscribe', {
-      'topic': 'server.metrics',
-      'serverId': serverId,
-    });
-    _subscribedServers.add(serverId);
-    logger.info('Subscribed to metrics for server: $serverId');
+    if (_isConnected) {
+      sendMessage('resource_metrics', {
+        // 'metrics' -> 'resource_metrics'로 변경
+        'topic': 'server.metrics',
+        'serverId': serverId,
+      });
+      _subscribedServers.add(serverId);
+      logger.info('Subscribed to metrics for server: $serverId');
+    } else {
+      _subscribedServers.add(serverId);
+      logger.info('Queued subscription for server: $serverId');
+    }
   }
 
-  // 서버 메트릭스 구독 취소 메서드 추가
   void unsubscribeFromServerMetrics(String serverId) {
     if (!_subscribedServers.contains(serverId)) return;
 
-    sendMessage('unsubscribe', {
-      'topic': 'server.metrics',
-      'serverId': serverId,
-    });
+    if (_isConnected) {
+      sendMessage('resource_metrics', {
+        // 여기도 동일하게 변경함 (attempt)
+        'topic': 'server.metrics',
+        'serverId': serverId,
+        'action': 'unsubscribe'
+      });
+    }
     _subscribedServers.remove(serverId);
     logger.info('Unsubscribed from metrics for server: $serverId');
   }
 
-  // 재연결 시 모든 구독 복구
   void _restoreSubscriptions() {
-    for (final serverId in _subscribedServers) {
-      subscribeToServerMetrics(serverId);
+    if (!_isConnected) return;
+
+    for (final serverId in _subscribedServers.toList()) {
+      sendMessage('subscribe', {
+        'topic': 'server.metrics',
+        'serverId': serverId,
+      });
+      logger.info('Restored subscription for server: $serverId');
     }
   }
 
   Future<void> connect() async {
-    if (_isConnected) return;
+    if (_isConnected || _isConnecting) return;
 
     try {
+      _isConnecting = true;
+      logger.info('Attempting WebSocket connection...');
+
       _channel = WebSocketChannel.connect(
         Uri.parse(AppConstants.wsUrl),
       );
+
+      // Add connection timeout
+      bool connected = false;
+      Timer(const Duration(seconds: 5), () {
+        if (!connected) {
+          logger.error('WebSocket connection timeout');
+          _handleError('Connection timeout');
+        }
+      });
+
+      await _channel!.ready;
+      connected = true;
       _isConnected = true;
+      _isConnecting = false;
+      _reconnectAttempts = 0;
 
       _channel!.stream.listen(
         _handleMessage,
@@ -69,9 +104,10 @@ class WebSocketService {
       );
 
       _startPingTimer();
-      _restoreSubscriptions(); // 연결 후 구독 복구
-      logger.info('WebSocket connected');
+      _restoreSubscriptions();
+      logger.info('WebSocket connected successfully');
     } catch (e) {
+      _isConnecting = false;
       logger.error('WebSocket connection failed: $e');
       _handleError(e);
     }
@@ -79,8 +115,20 @@ class WebSocketService {
 
   void _handleMessage(dynamic message) {
     try {
-      final socketMessage = SocketMessage.fromJson(message);
-      _messageController.add(socketMessage);
+      if (message is String || message is Map<String, dynamic>) {
+        final socketMessage = SocketMessage.fromJson(message);
+
+        // Handle ping/pong messages
+        if (socketMessage.isPing) {
+          sendMessage('pong', {'timestamp': DateTime.now().toIso8601String()});
+          return;
+        }
+
+        _messageController.add(socketMessage);
+        logger.debug('Received WebSocket message: ${socketMessage.type}');
+      } else {
+        logger.warning('Received invalid message type: ${message.runtimeType}');
+      }
     } catch (e) {
       logger.error('Failed to parse WebSocket message: $e');
     }
@@ -89,21 +137,37 @@ class WebSocketService {
   void _handleError(dynamic error) {
     logger.error('WebSocket error: $error');
     _isConnected = false;
+    _isConnecting = false;
     _scheduleReconnect();
   }
 
   void _handleDisconnect() {
-    logger.info('WebSocket disconnected');
-    _isConnected = false;
-    _scheduleReconnect();
+    if (_isConnected) {
+      logger.info('WebSocket disconnected');
+      _isConnected = false;
+      _isConnecting = false;
+      _scheduleReconnect();
+    }
   }
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(
-      const Duration(seconds: 5),
-      connect,
-    );
+
+    if (_reconnectAttempts >= maxReconnectAttempts) {
+      logger.error('Max reconnection attempts reached');
+      return;
+    }
+
+    final delay = Duration(
+        seconds: (initialReconnectDelay.inSeconds * (1 << _reconnectAttempts))
+            .clamp(0, maxReconnectDelay.inSeconds));
+
+    _reconnectTimer = Timer(delay, () {
+      _reconnectAttempts++;
+      logger.info(
+          'Attempting reconnect (${_reconnectAttempts}/$maxReconnectAttempts)');
+      connect();
+    });
   }
 
   void _startPingTimer() {
@@ -138,22 +202,34 @@ class WebSocketService {
       );
 
       _channel?.sink.add(message.toJson());
-      logger.debug('Sent WebSocket message: ${message.toJson()}');
+      logger.debug('Sent WebSocket message: ${message.type}');
     } catch (e) {
       logger.error('Failed to send WebSocket message: $e');
+      _handleError(e);
     }
   }
 
   Future<void> disconnect() async {
     _pingTimer?.cancel();
     _reconnectTimer?.cancel();
-    _subscribedServers.clear(); // 구독 목록 초기화
-    await _channel?.sink.close();
+    _subscribedServers.clear();
+    _reconnectAttempts = 0;
+    _isConnecting = false;
+
+    if (_channel != null) {
+      try {
+        await _channel!.sink.close();
+        logger.info('WebSocket disconnected cleanly');
+      } catch (e) {
+        logger.error('Error during WebSocket disconnect: $e');
+      }
+    }
+
     _isConnected = false;
   }
 
-  void dispose() {
-    disconnect();
-    _messageController.close();
+  Future<void> dispose() async {
+    await disconnect();
+    await _messageController.close();
   }
 }

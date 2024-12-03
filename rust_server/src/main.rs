@@ -22,33 +22,39 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
-   // Environment setup
-   dotenv().ok();
-   setup_logging();
-   
-   // Database setup
-   let db_pool = setup_database().await.map_err(|e| {
-       std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-   })?;
-   let repository = Arc::new(Repository::new(db_pool));
-   
-   // Services setup
-   let monitoring_service = MonitoringService::new(repository.clone());
+    // Environment setup
+    dotenv().ok();
+    setup_logging();
+    
+    // Database setup
+    let db_pool = setup_database().await.map_err(|e| {
+        std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+    })?;
+    let repository = Arc::new(Repository::new(db_pool));
+    
+    // Services setup
+    let monitoring_service = MonitoringService::new(repository.clone());
 
-   // Server setup
-   HttpServer::new(move || {
-       App::new()
-           .wrap(setup_cors())
-           .wrap(middleware::Logger::default())
-           //.wrap(AuthenticationMiddleware)
-           .app_data(web::Data::new(repository.clone()))
-           .app_data(web::Data::new(monitoring_service.clone()))
-           .configure(api::configure_routes)
-           .configure(websocket::configure_routes)
-   })
-   .bind("0.0.0.0:8080")?
-   .run()
-   .await
+    // Server address setup
+    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let port = std::env::var("PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse::<u16>()
+        .expect("PORT must be a number");
+    let server_address = format!("{}:{}", host, port);
+
+    // Server setup
+    HttpServer::new(move || {
+        App::new()
+            .wrap(middleware::Logger::default())
+            .wrap(setup_cors())
+            .app_data(web::Data::new(monitoring_service.clone()))
+            .app_data(web::Data::new(repository.clone()))
+            .configure(api::configure_routes)
+    })
+    .bind(&server_address)?
+    .run()
+    .await
 }
 
 fn setup_cors() -> Cors {

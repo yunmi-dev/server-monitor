@@ -12,35 +12,35 @@ pub async fn ws_index(
     req: HttpRequest,
     stream: web::Payload,
     monitoring_service: web::Data<MonitoringService>,
-    repository: web::Data<Arc<Repository>>,  // Arc<Repository>로 수정
+    repository: web::Data<Arc<Repository>>,
 ) -> Result<HttpResponse, Error> {
     ws::start(
         WebSocketConnection::new(
             monitoring_service.get_ref().clone(),
-            repository.get_ref().clone(),  // 이미 Arc이므로 그대로 clone
+            repository.get_ref().clone(),
         ),
         &req,
         stream,
     )
 }
 
-pub fn configure_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::scope("/api/v1")
-            .route("/ws", web::get().to(
-                |req: actix_web::HttpRequest,
-                 stream: web::Payload,
-                 monitoring_service: web::Data<MonitoringService>,
-                 repository: web::Data<Repository>| async move {
-                    ws::start(
-                        WebSocketConnection::new(
-                            monitoring_service.get_ref().clone(),
-                            Arc::new(repository.get_ref().clone())
-                        ),
-                        &req,
-                        stream
-                    )
-                }
-            ))
-    );
-}
+// pub fn configure_routes(cfg: &mut web::ServiceConfig) {
+//     cfg.service(
+//         web::scope("/api/v1")
+//             .route("/ws", web::get().to(
+//                 |req: actix_web::HttpRequest,
+//                  stream: web::Payload,
+//                  monitoring_service: web::Data<MonitoringService>,
+//                  repository: web::Data<Repository>| async move {
+//                     ws::start(
+//                         WebSocketConnection::new(
+//                             monitoring_service.get_ref().clone(),
+//                             Arc::new(repository.get_ref().clone())
+//                         ),
+//                         &req,
+//                         stream
+//                     )
+//                 }
+//             ))
+//     );
+// }

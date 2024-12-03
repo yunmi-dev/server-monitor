@@ -6,8 +6,10 @@ class AppConstants {
   const AppConstants._();
 
   // API Endpoints
-  static const String baseUrl = 'http://localhost:8080/api/v1';
-  static const String wsUrl = 'ws://localhost:8080/api/v1/ws';
+  // static const String baseUrl = 'http://localhost:8080/api/v1';
+  // static const String wsUrl = 'ws://localhost:8080/api/v1/ws';
+  static const String baseUrl = 'http://127.0.0.1:8080/api/v1';
+  static const String wsUrl = 'ws://127.0.0.1:8080/api/v1/ws';
 
   // Authentication
   static const String tokenKey = 'auth_token';

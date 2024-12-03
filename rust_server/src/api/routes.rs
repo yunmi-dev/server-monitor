@@ -2,11 +2,11 @@
 use actix_web::web;
 use crate::auth::handlers::{register, social_login};
 use crate::api::health::health_check;
-use crate::websocket::WebSocketConnection; 
-use crate::monitoring::MonitoringService;
-use crate::db::repository::Repository; 
-use std::sync::Arc; 
-use actix_web_actors::ws;
+// use crate::websocket::WebSocketConnection; 
+// use crate::monitoring::MonitoringService;
+// use crate::db::repository::Repository; 
+// use std::sync::Arc; 
+// use actix_web_actors::ws;
 use crate::api::servers::{
     create_server,
     delete_server,
@@ -66,21 +66,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             )
  
             // WebSocket route
-            .route("/ws", web::get().to(
-                |req: actix_web::HttpRequest,
-                 stream: web::Payload,
-                 monitoring_service: web::Data<MonitoringService>,
-                 repository: web::Data<Repository>| async move {
-                    ws::start(
-                        WebSocketConnection::new(
-                            monitoring_service.get_ref().clone(),
-                            Arc::new(repository.get_ref().clone())
-                        ),
-                        &req,
-                        stream
-                    )
-                }
-            ))
+            .route("/ws", web::get().to(crate::websocket::ws_index))
 
     );
 }
