@@ -56,7 +56,6 @@ impl WebSocketConnection {
                         "data": metrics,
                         "timestamp": chrono::Utc::now().to_rfc3339()  // timestamp 추가
                     });
-                    println!("Sending message: {}", message.to_string());  // 로깅 추가
                     message.to_string()
                 } else {
                     let error_message = json!({
@@ -66,7 +65,6 @@ impl WebSocketConnection {
                         },
                         "timestamp": chrono::Utc::now().to_rfc3339()  // timestamp 추가
                     });
-                    println!("Sending error: {}", error_message.to_string());  // 로깅 추가
                     error_message.to_string()
                 }            }
             .into_actor(actor)

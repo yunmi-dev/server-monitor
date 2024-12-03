@@ -82,6 +82,7 @@ async fn setup_database() -> Result<DbPool, AppError> {
     // 풀 생성 및 반환
     db::create_pool().await.map_err(AppError::from)
 }
+
 fn setup_logging() {
    tracing_subscriber::registry()
        .with(tracing_subscriber::EnvFilter::new(
