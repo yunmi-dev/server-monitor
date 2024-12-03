@@ -1,6 +1,5 @@
 // lib/widgets/auth/social_login_button.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_client/config/constants.dart';
 
 class SocialLoginButton extends StatefulWidget {
   final String provider;
@@ -9,7 +8,7 @@ class SocialLoginButton extends StatefulWidget {
   final Color? textColor;
   final String iconPath;
   final bool isLoading;
-  final String text; // 추가된 텍스트 파라미터
+  final String text;
 
   const SocialLoginButton({
     super.key,
@@ -17,7 +16,7 @@ class SocialLoginButton extends StatefulWidget {
     required this.onPressed,
     required this.backgroundColor,
     required this.iconPath,
-    required this.text, // 필수 파라미터로 변경
+    required this.text,
     this.textColor,
     this.isLoading = false,
   });
@@ -30,7 +29,6 @@ class _SocialLoginButtonState extends State<SocialLoginButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  bool _isPressed = false;
 
   @override
   void initState() {
@@ -59,21 +57,18 @@ class _SocialLoginButtonState extends State<SocialLoginButton>
 
   void _handleTapDown(TapDownDetails details) {
     if (!widget.isLoading) {
-      setState(() => _isPressed = true);
       _controller.forward();
     }
   }
 
   void _handleTapUp(TapUpDetails details) {
     if (!widget.isLoading) {
-      setState(() => _isPressed = false);
       _controller.reverse();
     }
   }
 
   void _handleTapCancel() {
     if (!widget.isLoading) {
-      setState(() => _isPressed = false);
       _controller.reverse();
     }
   }
@@ -94,7 +89,7 @@ class _SocialLoginButtonState extends State<SocialLoginButton>
         onTapCancel: _handleTapCancel,
         child: Container(
           width: double.infinity,
-          height: 48, // 버튼 높이
+          height: 48,
           margin: const EdgeInsets.symmetric(vertical: 4),
           child: Image.asset(
             widget.iconPath,

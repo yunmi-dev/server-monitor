@@ -31,7 +31,6 @@ class WebSocketService {
 
     if (_isConnected) {
       sendMessage('resource_metrics', {
-        // 'metrics' -> 'resource_metrics'로 변경
         'topic': 'server.metrics',
         'serverId': serverId,
       });
@@ -48,7 +47,6 @@ class WebSocketService {
 
     if (_isConnected) {
       sendMessage('resource_metrics', {
-        // 여기도 동일하게 변경함 (attempt)
         'topic': 'server.metrics',
         'serverId': serverId,
         'action': 'unsubscribe'
@@ -118,16 +116,14 @@ class WebSocketService {
       if (message is String || message is Map<String, dynamic>) {
         final socketMessage = SocketMessage.fromJson(message);
 
-        // Handle ping/pong messages
-        if (socketMessage.isPing) {
-          sendMessage('pong', {'timestamp': DateTime.now().toIso8601String()});
-          return;
+        // 리소스 메트릭은 verbose 레벨로 로깅
+        if (socketMessage.type == MessageType.resourceMetrics) {
+          logger.verbose('Received metrics message');
+        } else {
+          logger.info('Received WebSocket message: ${socketMessage.type}');
         }
 
         _messageController.add(socketMessage);
-        logger.debug('Received WebSocket message: ${socketMessage.type}');
-      } else {
-        logger.warning('Received invalid message type: ${message.runtimeType}');
       }
     } catch (e) {
       logger.error('Failed to parse WebSocket message: $e');

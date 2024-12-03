@@ -196,6 +196,7 @@ class ServerCard extends StatelessWidget {
           value: '${server.resources.disk.toStringAsFixed(1)}%',
           color: Colors.purple,
         ),
+        // TODO: Server 모델의 network 필드 nullable 여부 확인 후 불필요한 null 체크 제거
         if (network != null && network.isNotEmpty) // null 체크와 빈 문자열 체크
           _MetricItem(
             label: 'Network',

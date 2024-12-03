@@ -52,14 +52,23 @@ impl WebSocketConnection {
             let fut = async move {
                 if let Some(metrics) = monitoring.get_current_metrics().await {
                     let message = json!({
-                        "type": "metrics",
-                        "data": metrics
+                        "type": "resource_metrics",
+                        "data": metrics,
+                        "timestamp": chrono::Utc::now().to_rfc3339()  // timestamp 추가
                     });
+                    println!("Sending message: {}", message.to_string());  // 로깅 추가
                     message.to_string()
                 } else {
-                    "".to_string()
-                }
-            }
+                    let error_message = json!({
+                        "type": "error",
+                        "data": {
+                            "message": "Failed to get metrics"
+                        },
+                        "timestamp": chrono::Utc::now().to_rfc3339()  // timestamp 추가
+                    });
+                    println!("Sending error: {}", error_message.to_string());  // 로깅 추가
+                    error_message.to_string()
+                }            }
             .into_actor(actor)
             .map(|result, _, ctx| {
                 if !result.is_empty() {
@@ -98,13 +107,19 @@ impl WebSocketConnection {
             let fut = async move {
                 if let Some(metrics) = monitoring.get_server_metrics(&server_id).await {
                     let message = json!({
-                        "type": "server_metrics",
+                        "type": "resource_metrics",
                         "server_id": server_id,
                         "data": metrics
                     });
                     message.to_string()
                 } else {
-                    "".to_string()
+                    json!({
+                        "type": "error",
+                        "data": {
+                            "message": "Failed to get server metrics",
+                            "server_id": server_id
+                        }
+                    }).to_string()
                 }
             }
             .into_actor(actor)

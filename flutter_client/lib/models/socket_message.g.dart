@@ -31,6 +31,7 @@ const _$MessageTypeEnumMap = {
   MessageType.ping: 'ping',
   MessageType.pong: 'pong',
   MessageType.log: 'log',
+  MessageType.unknown: 'unknown',
 };
 
 ResourceMetrics _$ResourceMetricsFromJson(Map<String, dynamic> json) =>
