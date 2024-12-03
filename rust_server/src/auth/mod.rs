@@ -1,10 +1,14 @@
 // src/auth/mod.rs
+pub mod handlers;
 mod jwt;
 mod middleware;
-mod error;
 mod types;
-mod handlers;
+mod utils;
 
-// pub use jwt::{create_token, verify_token, Claims};
-// pub use middleware::AuthenticationMiddleware;
-//pub use types::*; // types의 타입들을 외부로 노출
+pub use crate::error::AppError as AuthError;
+pub use jwt::{verify_token, create_token_pair, TokenPair, Claims};  // create_token을 create_token_pair로 변경
+pub use middleware::AuthMiddleware;
+pub use types::*;
+
+// Re-export utils for use in other modules
+pub use utils::hash_password;

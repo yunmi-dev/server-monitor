@@ -1,0 +1,133 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO users \n            (id, email, password_hash, name, role, provider, profile_image_url, created_at, updated_at, last_login_at)\n            VALUES ($1, $2, $3, $4, $5::user_role, $6::auth_provider, $7, $8, $9, $10)\n            RETURNING id, email, password_hash, name, \n                      role as \"role: UserRole\",\n                      provider as \"provider: AuthProvider\",\n                      profile_image_url, created_at, updated_at, last_login_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "password_hash",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "role: UserRole",
+        "type_info": {
+          "Custom": {
+            "name": "user_role",
+            "kind": {
+              "Enum": [
+                "admin",
+                "user",
+                "viewer"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "provider: AuthProvider",
+        "type_info": {
+          "Custom": {
+            "name": "auth_provider",
+            "kind": {
+              "Enum": [
+                "email",
+                "google",
+                "apple",
+                "kakao",
+                "facebook"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "profile_image_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_login_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        {
+          "Custom": {
+            "name": "user_role",
+            "kind": {
+              "Enum": [
+                "admin",
+                "user",
+                "viewer"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "auth_provider",
+            "kind": {
+              "Enum": [
+                "email",
+                "google",
+                "apple",
+                "kakao",
+                "facebook"
+              ]
+            }
+          }
+        },
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "d01848caf6fada613ffbf201dba166b7227e752e10507f4679d99c08a79c31b4"
+}

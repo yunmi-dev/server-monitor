@@ -2,7 +2,7 @@
 use actix_web::{web, HttpResponse, Result};
 use crate::{
     db::repository::Repository,
-    models::logs::{LogEntry, LogFilter, LogLevel},
+    models::logs::{LogEntry, LogFilter, LogLevel, LogMetadata},
     error::AppError,
     api::response::ApiResponse,
 };
@@ -15,6 +15,7 @@ pub struct CreateLogRequest {
     pub message: String,
     pub component: String,
     pub server_id: Option<String>,
+    #[serde(default)]  //null일 경우 None으로 처리
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub stack_trace: Option<String>,
     pub source_location: Option<String>,
@@ -31,10 +32,11 @@ pub async fn create_log(
         component: log.component.clone(),
         server_id: log.server_id.clone(),
         timestamp: chrono::Utc::now(),
-        metadata: log.metadata.clone(),
+        metadata: LogMetadata(log.metadata.clone()), // LogMetadata로 래핑
         stack_trace: log.stack_trace.clone(),
         source_location: log.source_location.clone(),
         correlation_id: None,
+        message_tsv: None,  // message_tsv 필드 추가
     };
 
     let result = repo.create_log(log_entry).await

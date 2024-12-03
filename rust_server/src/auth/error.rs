@@ -20,6 +20,12 @@ pub enum AppError {
 
     #[error("Internal server error: {0}")]
     InternalError(String),
+
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+
+    #[error("External service error: {0}")]
+    ExternalService(String),
 }
 
 impl ResponseError for AppError {
@@ -55,6 +61,21 @@ impl ResponseError for AppError {
                     "message": msg
                 }))
             }
+            AppError::BadRequest(msg) => {
+                HttpResponse::BadRequest().json(json!({
+                    "error": "bad_request",
+                    "message": msg
+                }))
+            }
+            AppError::ExternalService(msg) => {
+                HttpResponse::InternalServerError().json(json!({
+                    "error": "external_service_error",
+                    "message": msg
+                }))
+            }
         }
     }
 }
+
+// auth 모듈에서 사용할 에러 타입 별칭
+pub type AuthError = AppError;

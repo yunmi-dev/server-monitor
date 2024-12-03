@@ -34,14 +34,24 @@ services:
       DATABASE_URL: "postgres://flickuser:flickpass@timescaledb:5432/flickdb"
       RUST_LOG: "debug"
       RUST_BACKTRACE: 1
-      JWT_SECRET: "your-development-secret-key"
+      JWT_SECRET: "vyrNOICeLlcWzOKsmxWeWUn4-Nw15NeCHw7o7t7aw7Q"
     depends_on:
       timescaledb:
         condition: service_healthy
-    command: cargo watch -x run
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        until sqlx database create --database-url postgres://flickuser:flickpass@timescaledb:5432/flickdb; do
+          echo 'Database creation failed, retrying in 5 seconds...'
+          sleep 5
+        done &&
+        echo 'Running database migrations...' &&
+        sqlx migrate run &&
+        echo 'Starting development server with auto-reload...' &&
+        cargo watch -x run
+      "
     networks:
       - flick_network
-
   # jenkins:
   #   image: jenkins/jenkins:lts
   #   privileged: true

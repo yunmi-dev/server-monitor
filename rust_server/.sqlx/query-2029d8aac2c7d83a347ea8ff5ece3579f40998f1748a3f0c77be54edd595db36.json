@@ -11,7 +11,7 @@
     ],
     "parameters": {
       "Left": [
-        "Text",
+        "Varchar",
         "Float8",
         "Float8",
         "Float8",

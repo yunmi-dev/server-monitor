@@ -70,7 +70,8 @@ async fn setup_database() -> Result<DbPool, AppError> {
     sqlx::migrate!("./migrations")
         .run(&db::create_pool().await?)
         .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .map_err(|e| AppError::DatabaseError(sqlx::Error::from(e)))?;
+
 
     // 풀 생성 및 반환
     db::create_pool().await.map_err(AppError::from)

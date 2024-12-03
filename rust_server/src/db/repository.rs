@@ -1,13 +1,16 @@
 // server/src/db/repository.rs
-use chrono::{DateTime, Utc};
-use sqlx::types::JsonValue;
 use super::models::*;
 use super::DbPool;
 use anyhow::Result;
+use crate::models::logs::{LogEntry, LogFilter, LogLevel, LogMetadata};
+use chrono::{DateTime, Utc};
+use sqlx::types::JsonValue;
+use sqlx::{Row, QueryBuilder};
+//use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct Repository {
-    pool: DbPool,
+    pub(crate) pool: DbPool,
 }
 
 impl Repository {
@@ -102,16 +105,15 @@ impl Repository {
             cpu_usage: 0.0,
             memory_usage: 0.0,
             disk_usage: 0.0,
-            network_rx: 0.0,
-            network_tx: 0.0,
+            network_rx: 0,  // Changed to 0 (i64)
+            network_tx: 0,  // Changed to 0 (i64)
             processes: serde_json::json!([]),
             timestamp: Utc::now(),
         };
-
+    
         self.save_metrics(initial_snapshot).await?;
         Ok(())
     }
-
     pub async fn save_metrics(&self, snapshot: MetricsSnapshot) -> Result<i64> {
         let result = sqlx::query!(
             r#"
@@ -211,26 +213,60 @@ impl Repository {
             User,
             r#"
             INSERT INTO users 
-            (id, email, password_hash, name, role, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            (id, email, password_hash, name, role, provider, profile_image_url, created_at, updated_at, last_login_at)
+            VALUES ($1, $2, $3, $4, $5::user_role, $6::auth_provider, $7, $8, $9, $10)
             RETURNING id, email, password_hash, name, 
                       role as "role: UserRole",
-                      created_at, updated_at
+                      provider as "provider: AuthProvider",
+                      profile_image_url, created_at, updated_at, last_login_at
             "#,
             user.id,
             user.email,
             user.password_hash,
             user.name,
             user.role as UserRole,
+            user.provider as AuthProvider,
+            user.profile_image_url,
             user.created_at,
-            user.updated_at
+            user.updated_at,
+            user.last_login_at,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+    
+        Ok(result)
+    }
+
+    pub async fn update_user(&self, user: User) -> Result<User> {
+        let result = sqlx::query_as!(
+            User,
+            r#"
+            UPDATE users 
+            SET 
+                name = $1,
+                profile_image_url = $2,
+                last_login_at = $3,
+                updated_at = $4
+            WHERE id = $5
+            RETURNING 
+                id, email, password_hash, name,
+                role as "role: UserRole",
+                provider as "provider: AuthProvider",
+                profile_image_url,
+                created_at, updated_at, last_login_at
+            "#,
+            user.name,
+            user.profile_image_url,
+            user.last_login_at,
+            user.updated_at,
+            user.id
         )
         .fetch_one(&self.pool)
         .await?;
 
         Ok(result)
     }
-
+    
     pub async fn get_user_by_email(&self, email: &str) -> Result<Option<User>> {
         let result = sqlx::query_as!(
             User,
@@ -238,7 +274,8 @@ impl Repository {
             SELECT 
                 id, email, password_hash, name,
                 role as "role: UserRole",
-                created_at, updated_at
+                provider as "provider: AuthProvider",
+                profile_image_url, created_at, updated_at, last_login_at
             FROM users 
             WHERE email = $1
             "#,
@@ -246,7 +283,7 @@ impl Repository {
         )
         .fetch_optional(&self.pool)
         .await?;
-
+    
         Ok(result)
     }
 
@@ -297,17 +334,39 @@ impl Repository {
         Ok(())
     }
 
-
-    pub async fn create_log(&self, log: LogEntry) -> Result<LogEntry, sqlx::Error> {
-        sqlx::query_as!(
-            LogEntry,
+    pub async fn create_log(&self, log: LogEntry) -> Result<LogEntry> {
+        let metadata_json = match &log.metadata.0 {
+            Some(map) => serde_json::to_value(map).unwrap_or(JsonValue::Null),
+            None => JsonValue::Null,
+        };
+    
+        let result = sqlx::query!(
             r#"
-            INSERT INTO logs (
-                id, level, message, component, server_id, timestamp,
-                metadata, stack_trace, source_location, correlation_id
+            WITH inserted AS (
+                INSERT INTO logs (
+                    id, level, message, component, server_id, timestamp,
+                    metadata, stack_trace, source_location, correlation_id
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                RETURNING 
+                    id, 
+                    level as "level: LogLevel", 
+                    message, 
+                    component, 
+                    server_id,
+                    timestamp, 
+                    metadata as "metadata!: JsonValue",
+                    stack_trace, 
+                    source_location, 
+                    correlation_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING *
+            SELECT 
+                i.*,
+                ts.tsv::text as message_tsv
+            FROM inserted i
+            CROSS JOIN LATERAL (
+                SELECT to_tsvector('english', i.message) as tsv
+            ) ts
             "#,
             log.id,
             log.level as LogLevel,
@@ -315,24 +374,81 @@ impl Repository {
             log.component,
             log.server_id,
             log.timestamp,
-            log.metadata as Option<serde_json::Value>,
+            metadata_json,
             log.stack_trace,
             log.source_location,
-            log.correlation_id,
+            log.correlation_id
         )
         .fetch_one(&self.pool)
+        .await?;
+    
+        Ok(LogEntry {
+            id: result.id,
+            level: result.level,
+            message: result.message,
+            component: result.component,
+            server_id: result.server_id,
+            timestamp: result.timestamp,
+            metadata: LogMetadata::from(result.metadata),
+            stack_trace: result.stack_trace,
+            source_location: result.source_location,
+            correlation_id: result.correlation_id,
+            message_tsv: result.message_tsv,
+        })
+            }
+
+    pub async fn get_log(&self, id: &str) -> Result<Option<LogEntry>> {
+        sqlx::query_as!(
+            LogEntry,
+            r#"
+            SELECT 
+                id,
+                level::text as "level!",
+                message,
+                component,
+                server_id,
+                timestamp,
+                metadata as "metadata!: JsonValue",
+                stack_trace,
+                source_location,
+                correlation_id,
+                message_tsv::text as message_tsv
+            FROM logs 
+            WHERE id = $1
+            "#,
+            id
+        )
+        .fetch_optional(&self.pool)
         .await
+        .map_err(Into::into)
     }
 
-    pub async fn get_logs(&self, filter: LogFilter) -> Result<Vec<LogEntry>, sqlx::Error> {
-        let mut query = sqlx::QueryBuilder::new(
-            "SELECT * FROM logs WHERE true"
+    pub async fn get_logs(&self, filter: LogFilter) -> Result<Vec<LogEntry>> {
+        let mut query = QueryBuilder::new(
+            r#"
+            SELECT 
+                id, 
+                level::text as level,
+                message,
+                component,
+                server_id,
+                timestamp,
+                metadata,
+                stack_trace,
+                source_location,
+                correlation_id,
+                message_tsv::text as message_tsv
+            FROM logs WHERE true
+            "#
         );
-
+        
         if let Some(levels) = filter.levels {
             query.push(" AND level = ANY(");
-            query.push_bind(levels);
-            query.push(")");
+            let level_strings: Vec<String> = levels.into_iter()
+                .map(|l| l.to_string())
+                .collect();
+            query.push_bind(level_strings);
+            query.push("::log_level[])");
         }
 
         if let Some(from) = filter.from {
@@ -356,8 +472,8 @@ impl Repository {
         }
 
         if let Some(search) = filter.search {
-            query.push(" AND message_tsv @@ to_tsquery(");
-            query.push_bind(format!("{}:*", search));
+            query.push(" AND message_tsv @@ plainto_tsquery('english', ");
+            query.push_bind(search);
             query.push(")");
         }
 
@@ -373,25 +489,29 @@ impl Repository {
             query.push_bind(offset);
         }
 
-        query.build_query_as::<LogEntry>()
-            .fetch_all(&self.pool)
-            .await
+        let sql = query.build();
+        let rows = sql.fetch_all(&self.pool).await?;
+    
+        let logs = rows.iter().map(|row| LogEntry {
+            id: row.get("id"),
+            level: LogLevel::from(row.get::<String, _>("level")),
+            message: row.get("message"),
+            component: row.get("component"),
+            server_id: row.get("server_id"),
+            timestamp: row.get("timestamp"),
+            metadata: LogMetadata::from(row.get::<JsonValue, _>("metadata")),
+            stack_trace: row.get("stack_trace"),
+            source_location: row.get("source_location"),
+            correlation_id: row.get("correlation_id"),
+            message_tsv: row.get("message_tsv"),
+        }).collect();
+    
+        Ok(logs)
     }
 
-    pub async fn get_log(&self, id: &str) -> Result<Option<LogEntry>, sqlx::Error> {
-        sqlx::query_as!(
-            LogEntry,
-            "SELECT * FROM logs WHERE id = $1",
-            id
-        )
-        .fetch_optional(&self.pool)
-        .await
-    }
+    pub async fn delete_logs(&self, filter: LogFilter) -> Result<i64> {
+        let mut query = QueryBuilder::new("DELETE FROM logs WHERE true");
 
-    pub async fn delete_logs(&self, filter: LogFilter) -> Result<i64, sqlx::Error> {
-        let mut query = sqlx::QueryBuilder::new("DELETE FROM logs WHERE true");
-
-        // 필터 조건 추가
         if let Some(from) = filter.from {
             query.push(" AND timestamp >= ");
             query.push_bind(from);
@@ -402,12 +522,20 @@ impl Repository {
             query.push_bind(to);
         }
 
-        query.push(" RETURNING 1");
+        if let Some(server_id) = filter.server_id {
+            query.push(" AND server_id = ");
+            query.push_bind(server_id);
+        }
 
-        let deleted = query.build()
-            .fetch_all(&self.pool)
+        if let Some(component) = filter.component {
+            query.push(" AND component = ");
+            query.push_bind(component);
+        }
+
+        let result = query.build()
+            .execute(&self.pool)
             .await?;
 
-        Ok(deleted.len() as i64)
+        Ok(result.rows_affected() as i64)
     }
 }

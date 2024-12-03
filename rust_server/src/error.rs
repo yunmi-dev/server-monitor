@@ -1,17 +1,18 @@
 // src/error.rs
-use actix_web::{HttpResponse, ResponseError, http::StatusCode}; // Added StatusCode import
+use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use thiserror::Error;
 use serde_json::json;
-use sqlx::Error as SqlxError;
 
-#[allow(dead_code)]
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum AppError {
-    #[error("Database error: {0}")]
-    DatabaseError(#[from] SqlxError),
-
+    #[error("Internal error: {0}")]
+    InternalError(String),
+    
     #[error("Authentication error: {0}")]
     AuthError(String),
+
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] sqlx::Error),
 
     #[error("Validation error: {0}")]
     ValidationError(String),
@@ -20,22 +21,34 @@ pub enum AppError {
     NotFound(String),
 
     #[error("Internal server error: {0}")]
-    InternalError(String),
+    Internal(String),
+
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+    
+    #[error("External service error: {0}")]
+    ExternalService(String),
 }
 
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         let (status, error_type) = match self {
-            AppError::DatabaseError(_) => 
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error occurred"),
-            AppError::AuthError(_) => 
-                (StatusCode::UNAUTHORIZED, "Authentication failed"),
-            AppError::ValidationError(_) => 
-                (StatusCode::BAD_REQUEST, "Validation failed"), 
-            AppError::NotFound(_) => 
-                (StatusCode::NOT_FOUND, "Resource not found"),
             AppError::InternalError(_) => 
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
+            AppError::DatabaseError(_) => 
+                (StatusCode::INTERNAL_SERVER_ERROR, "database_error"),
+            AppError::AuthError(_) => 
+                (StatusCode::UNAUTHORIZED, "authentication_error"),
+            AppError::ValidationError(_) => 
+                (StatusCode::BAD_REQUEST, "validation_error"),
+            AppError::NotFound(_) => 
+                (StatusCode::NOT_FOUND, "not_found"),
+            AppError::Internal(_) => 
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
+            AppError::BadRequest(_) => 
+                (StatusCode::BAD_REQUEST, "bad_request"),
+            AppError::ExternalService(_) => 
+                (StatusCode::BAD_GATEWAY, "external_service_error"),
         };
 
         HttpResponse::build(status).json(json!({
@@ -45,10 +58,23 @@ impl ResponseError for AppError {
             "data": null
         }))
     }
+
+    fn status_code(&self) -> StatusCode {
+        match self {
+            AppError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::AuthError(_) => StatusCode::UNAUTHORIZED,
+            AppError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            AppError::NotFound(_) => StatusCode::NOT_FOUND,
+            AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::ExternalService(_) => StatusCode::BAD_GATEWAY,
+        }
+    }
 }
 
 impl From<anyhow::Error> for AppError {
     fn from(err: anyhow::Error) -> Self {
-        AppError::InternalError(err.to_string())
+        AppError::Internal(err.to_string())
     }
 }

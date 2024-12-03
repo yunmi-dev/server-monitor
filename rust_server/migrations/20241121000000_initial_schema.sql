@@ -1,7 +1,6 @@
 -- migrations/20241121000000_initial_schema.sql
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "timescaledb";
 
 -- Enum types
 DO $$ BEGIN
@@ -9,6 +8,8 @@ DO $$ BEGIN
     CREATE TYPE alert_severity AS ENUM ('info', 'warning', 'critical');
     CREATE TYPE user_role AS ENUM ('admin', 'user', 'viewer');
     CREATE TYPE metric_type AS ENUM ('cpu', 'memory', 'disk', 'network');
+    CREATE TYPE auth_provider AS ENUM ('email', 'google', 'apple', 'kakao', 'facebook');
+    CREATE TYPE log_level AS ENUM ('debug', 'info', 'warning', 'alert', 'critical');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
@@ -43,9 +44,9 @@ CREATE TABLE IF NOT EXISTS servers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Metrics snapshots
+-- Metrics snapshots (수정됨)
 CREATE TABLE IF NOT EXISTS metrics_snapshots (
-    id BIGSERIAL,
+    id BIGSERIAL PRIMARY KEY,
     server_id VARCHAR(36) NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
     cpu_usage DOUBLE PRECISION NOT NULL,
     memory_usage DOUBLE PRECISION NOT NULL,
@@ -57,12 +58,8 @@ CREATE TABLE IF NOT EXISTS metrics_snapshots (
     timestamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT metrics_cpu_usage_check CHECK (cpu_usage >= 0 AND cpu_usage <= 100),
     CONSTRAINT metrics_memory_usage_check CHECK (memory_usage >= 0 AND memory_usage <= 100),
-    CONSTRAINT metrics_disk_usage_check CHECK (disk_usage >= 0 AND disk_usage <= 100),
-    PRIMARY KEY (id, timestamp)
+    CONSTRAINT metrics_disk_usage_check CHECK (disk_usage >= 0 AND disk_usage <= 100)
 );
-
--- Convert to hypertable
-SELECT create_hypertable('metrics_snapshots', 'timestamp', if_not_exists => TRUE);
 
 -- Alerts table
 CREATE TABLE IF NOT EXISTS alerts (
@@ -105,6 +102,43 @@ CREATE TABLE IF NOT EXISTS maintenance_windows (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT valid_timerange CHECK (start_time < end_time)
 );
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS provider auth_provider NOT NULL DEFAULT 'email',
+    ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
+
+
+CREATE TABLE IF NOT EXISTS logs (
+    id TEXT PRIMARY KEY,
+    level log_level NOT NULL,
+    message TEXT NOT NULL,
+    component TEXT NOT NULL,
+    server_id TEXT REFERENCES servers(id),
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    metadata JSONB,
+    stack_trace TEXT,
+    source_location TEXT,
+    correlation_id TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
+CREATE INDEX IF NOT EXISTS idx_logs_server_id ON logs(server_id);
+CREATE INDEX IF NOT EXISTS idx_logs_component ON logs(component);
+
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (
+        SELECT FROM pg_attribute
+        WHERE attrelid = 'logs'::regclass
+        AND attname = 'message_tsv'
+        AND NOT attisdropped
+    ) THEN
+        ALTER TABLE logs ADD COLUMN message_tsv tsvector 
+            GENERATED ALWAYS AS (to_tsvector('english', message)) STORED;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_logs_message_tsv ON logs USING GIN(message_tsv);
 
 -- Audit logs
 CREATE TABLE IF NOT EXISTS audit_logs (

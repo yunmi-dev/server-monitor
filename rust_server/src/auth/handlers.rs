@@ -3,12 +3,14 @@ use actix_web::{post, web, HttpResponse};
 use chrono::Utc;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use reqwest::Client;
-use serde_json::json;
+use uuid::Uuid;
 
-use crate::auth::types::{AuthResponse, Claims, SocialLoginRequest};
-use crate::config::AppConfig;
-use crate::db::models::User;
-use crate::db::Repository;
+use crate::auth::types::{AuthResponse, RegisterRequest, SocialLoginRequest, UserResponse};
+use crate::auth::jwt::Claims;
+use crate::auth::utils::hash_password;
+use crate::config::ServerConfig;
+use crate::db::models::{User, UserRole, AuthProvider};
+use crate::db::repository::Repository;
 use crate::error::AppError;
 
 #[post("/auth/social-login")]
@@ -16,12 +18,12 @@ pub async fn social_login(
     req: web::Json<SocialLoginRequest>,
     repo: web::Data<Repository>,
     http_client: web::Data<Client>,
-    config: web::Data<AppConfig>,
+    config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
     match req.provider.as_str() {
-        "google" => handle_google_login(req.0, repo, http_client, config).await,
-        "kakao" => handle_kakao_login(req.0, repo, http_client, config).await,
-        "apple" => handle_apple_login(req.0, repo, http_client, config).await,
+        "google" => handle_google_login(&req.access_token, repo, http_client, config).await,
+        "kakao" => handle_kakao_login(&req.access_token, repo, http_client, config).await,
+        "apple" => handle_apple_login(&req.access_token, repo, http_client, config).await,
         _ => Err(AppError::BadRequest("Unsupported provider".into())),
     }
 }
@@ -30,19 +32,16 @@ pub async fn social_login(
 pub async fn register(
     req: web::Json<RegisterRequest>,
     repo: web::Data<Repository>,
-    config: web::Data<AppConfig>,
+    config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
-    // 이미 존재하는 이메일인지 확인
-    if let Some(_) = repo.find_user_by_email(&req.email).await? {
+    if let Some(_) = repo.get_user_by_email(&req.email).await? {
         return Err(AppError::BadRequest("Email already exists".into()));
     }
 
-    // 비밀번호 해시화
     let password_hash = hash_password(&req.password)?;
 
-    // 새 유저 생성
     let new_user = User {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: Uuid::new_v4().to_string(),
         email: req.email.clone(),
         password_hash: Some(password_hash),
         name: req.name.clone(),
@@ -57,23 +56,18 @@ pub async fn register(
     let user = repo.create_user(new_user).await?;
     let tokens = generate_tokens(&user, &config)?;
 
-    Ok(HttpResponse::Ok().json(AuthResponse {
-        access_token: tokens.0,
-        refresh_token: tokens.1,
-        user: user.into(),
-    }))
+    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
 async fn handle_google_login(
-    req: SocialLoginRequest,
+    token: &str,
     repo: web::Data<Repository>,
     http_client: web::Data<Client>,
-    config: web::Data<AppConfig>,
+    config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
-    // Google token info endpoint로 토큰 검증
     let token_info = http_client
         .get("https://oauth2.googleapis.com/tokeninfo")
-        .query(&[("id_token", &req.token)])
+        .query(&[("id_token", token)])
         .send()
         .await
         .map_err(|e| AppError::ExternalService(format!("Google API error: {}", e)))?
@@ -88,26 +82,21 @@ async fn handle_google_login(
     let name = token_info["name"].as_str().map(|s| s.to_string());
     let picture = token_info["picture"].as_str().map(|s| s.to_string());
 
-    let user = handle_user_creation(email, name, picture, "google", repo).await?;
+    let user = handle_user_creation(email, name, picture, AuthProvider::Google, repo).await?;
     let tokens = generate_tokens(&user, &config)?;
 
-    Ok(HttpResponse::Ok().json(AuthResponse {
-        access_token: tokens.0,
-        refresh_token: tokens.1,
-        user: user.into(),
-    }))
+    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
 async fn handle_kakao_login(
-    req: SocialLoginRequest,
+    token: &str,
     repo: web::Data<Repository>,
     http_client: web::Data<Client>,
-    config: web::Data<AppConfig>,
+    config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
-    // Kakao token info endpoint로 토큰 검증
     let user_info = http_client
         .get("https://kapi.kakao.com/v2/user/me")
-        .header("Authorization", format!("Bearer {}", req.token))
+        .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
         .map_err(|e| AppError::ExternalService(format!("Kakao API error: {}", e)))?
@@ -130,85 +119,82 @@ async fn handle_kakao_login(
     let name = profile["nickname"].as_str().map(|s| s.to_string());
     let picture = profile["profile_image_url"].as_str().map(|s| s.to_string());
 
-    let user = handle_user_creation(email, name, picture, "kakao", repo).await?;
+    let user = handle_user_creation(email, name, picture, AuthProvider::Kakao, repo).await?;
     let tokens = generate_tokens(&user, &config)?;
 
-    Ok(HttpResponse::Ok().json(AuthResponse {
-        access_token: tokens.0,
-        refresh_token: tokens.1,
-        user: user.into(),
-    }))
+    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
 async fn handle_apple_login(
-    req: SocialLoginRequest,
+    token: &str,
     repo: web::Data<Repository>,
-    http_client: web::Data<Client>,
-    config: web::Data<AppConfig>,
+    _http_client: web::Data<Client>,
+    config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
-    // Apple의 경우 클라이언트에서 검증된 ID 토큰을 받아서 처리
-    // jwt_decode를 사용하여 토큰 검증
-    let email = req.email.ok_or_else(|| {
-        AppError::BadRequest("Email is required for Apple sign in".into())
-    })?;
+    let claims = jsonwebtoken::decode::<serde_json::Value>(
+        token,
+        &jsonwebtoken::DecodingKey::from_secret(config.auth.jwt_secret.as_bytes()),
+        &jsonwebtoken::Validation::default(),
+    )
+    .map_err(|e| AppError::BadRequest(format!("Invalid Apple token: {}", e)))?;
 
-    let user = handle_user_creation(&email, None, None, "apple", repo).await?;
+    let email = claims
+        .claims["email"]
+        .as_str()
+        .ok_or_else(|| AppError::BadRequest("Email not found in Apple token".into()))?;
+
+    let name = claims.claims["name"].as_str().map(|s| s.to_string());
+    let user = handle_user_creation(email, name, None, AuthProvider::Apple, repo).await?;
     let tokens = generate_tokens(&user, &config)?;
 
-    Ok(HttpResponse::Ok().json(AuthResponse {
-        access_token: tokens.0,
-        refresh_token: tokens.1,
-        user: user.into(),
-    }))
+    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
 async fn handle_user_creation(
     email: &str,
     name: Option<String>,
     profile_image: Option<String>,
-    provider: &str,
+    provider: AuthProvider,
     repo: web::Data<Repository>,
 ) -> Result<User, AppError> {
-    match repo.find_user_by_email(email).await? {
-        Some(mut user) => {
-            // 기존 유저 정보 업데이트
-            if user.provider.as_ref() == provider {
-                if let Some(new_name) = name {
-                    user.name = new_name;
-                }
-                user.profile_image_url = profile_image;
-                user.last_login_at = Some(Utc::now());
-                user.updated_at = Utc::now();
-                repo.update_user(user.clone()).await?;
+    if let Some(mut user) = repo.get_user_by_email(email).await? {
+        if user.provider == provider {
+            if let Some(new_name) = name {
+                user.name = new_name;
             }
-            Ok(user)
+            user.profile_image_url = profile_image;
+            user.last_login_at = Some(Utc::now());
+            user.updated_at = Utc::now();
+            Ok(repo.update_user(user).await?)
+        } else {
+            Err(AppError::BadRequest(format!(
+                "Email already exists with different provider: {}",
+                user.provider
+            )))
         }
-        None => {
-            // 새 유저 생성
-            let new_user = User {
-                id: uuid::Uuid::new_v4().to_string(), // UUID 생성
-                email: email.to_string(),
-                password_hash: None,  // 소셜 로그인은 비밀번호 없음
-                name: name.unwrap_or_else(|| email.split('@').next().unwrap_or("User").to_string()),
-                role: UserRole::User,  // 기본 사용자 역할
-                provider: AuthProvider::from(provider),  // 문자열을 AuthProvider로 변환
-                profile_image_url: profile_image,
-                created_at: Utc::now(),
-                updated_at: Utc::now(),
-                last_login_at: Some(Utc::now()),
-            };
-            Ok(repo.create_user(new_user).await?)
-        }
+    } else {
+        let new_user = User {
+            id: Uuid::new_v4().to_string(),
+            email: email.to_string(),
+            password_hash: None,
+            name: name.unwrap_or_else(|| email.split('@').next().unwrap_or("User").to_string()),
+            role: UserRole::User,
+            provider,
+            profile_image_url: profile_image,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            last_login_at: Some(Utc::now()),
+        };
+        Ok(repo.create_user(new_user).await?)
     }
 }
 
-fn generate_tokens(user: &User, config: &AppConfig) -> Result<(String, String), AppError> {
-    let now = Utc::now().timestamp() as usize;
+fn generate_tokens(user: &User, config: &ServerConfig) -> Result<(String, String), AppError> {
+    let now = Utc::now().timestamp();
 
-    // Access Token 생성
     let access_claims = Claims {
-        sub: user.id.to_string(),
-        exp: now + config.jwt.access_token_expire as usize, // 예: 15분
+        sub: user.id.clone(),
+        exp: now + config.auth.access_token_expire,
         iat: now,
         token_type: "access".to_string(),
     };
@@ -216,14 +202,13 @@ fn generate_tokens(user: &User, config: &AppConfig) -> Result<(String, String), 
     let access_token = encode(
         &Header::default(),
         &access_claims,
-        &EncodingKey::from_secret(config.jwt.secret.as_bytes()),
+        &EncodingKey::from_secret(config.auth.jwt_secret.as_bytes()),
     )
-    .map_err(|e| AppError::Internal(format!("Token generation error: {}", e)))?;
+    .map_err(|e| AppError::Internal(format!("Access token generation failed: {}", e)))?;
 
-    // Refresh Token 생성
     let refresh_claims = Claims {
-        sub: user.id.to_string(),
-        exp: now + config.jwt.refresh_token_expire as usize, // 예: 7일
+        sub: user.id.clone(),
+        exp: now + config.auth.refresh_token_expire,
         iat: now,
         token_type: "refresh".to_string(),
     };
@@ -231,9 +216,17 @@ fn generate_tokens(user: &User, config: &AppConfig) -> Result<(String, String), 
     let refresh_token = encode(
         &Header::default(),
         &refresh_claims,
-        &EncodingKey::from_secret(config.jwt.secret.as_bytes()),
+        &EncodingKey::from_secret(config.auth.jwt_secret.as_bytes()),
     )
-    .map_err(|e| AppError::Internal(format!("Token generation error: {}", e)))?;
+    .map_err(|e| AppError::Internal(format!("Refresh token generation failed: {}", e)))?;
 
     Ok((access_token, refresh_token))
+}
+
+fn create_auth_response(user: User, tokens: (String, String)) -> AuthResponse {
+    AuthResponse {
+        token: tokens.0,
+        refresh_token: tokens.1,
+        user: UserResponse::from(user),
+    }
 }

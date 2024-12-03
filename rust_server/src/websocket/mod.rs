@@ -1,13 +1,12 @@
 // src/websocket/mod.rs
-mod handlers;
+pub mod handlers;
+pub use handlers::WebSocketConnection;
 
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use crate::monitoring::MonitoringService;
 use crate::db::repository::Repository;
 use std::sync::Arc;
-
-pub use handlers::WebSocketConnection;
 
 pub async fn ws_index(
     req: HttpRequest,
@@ -26,5 +25,22 @@ pub async fn ws_index(
 }
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::resource("/ws").route(web::get().to(ws_index)));
+    cfg.service(
+        web::scope("/api/v1")
+            .route("/ws", web::get().to(
+                |req: actix_web::HttpRequest,
+                 stream: web::Payload,
+                 monitoring_service: web::Data<MonitoringService>,
+                 repository: web::Data<Repository>| async move {
+                    ws::start(
+                        WebSocketConnection::new(
+                            monitoring_service.get_ref().clone(),
+                            Arc::new(repository.get_ref().clone())
+                        ),
+                        &req,
+                        stream
+                    )
+                }
+            ))
+    );
 }

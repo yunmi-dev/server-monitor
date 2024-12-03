@@ -1,4 +1,4 @@
-# Dockerfile.dev for development environment
+# Dockerfile for development environment
 FROM rust:1.82-slim-bookworm
 
 # Set CARGO_HOME for caching
