@@ -7,6 +7,7 @@ import 'package:flutter_client/models/server.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/utils/snackbar_utils.dart';
 import 'package:flutter_client/utils/validation_utils.dart';
+import 'package:flutter_client/widgets/server/add_server_modal.dart';
 
 class ServersScreen extends StatefulWidget {
   const ServersScreen({super.key});
@@ -164,6 +165,48 @@ class _ServersScreenState extends State<ServersScreen> {
     );
   }
 
+  void _showAddServerModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AddServerModal(
+        onAdd: (name, host, port, username, password, type) async {
+          try {
+            // Provider 인스턴스 가져오기
+            final serverProvider =
+                Provider.of<ServerProvider>(context, listen: false);
+
+            // 연결 테스트
+            await serverProvider.testConnection(
+              host: host,
+              port: port,
+              username: username,
+              password: password,
+            );
+
+            // 서버 추가
+            await serverProvider.addServer(
+              name: name,
+              host: host,
+              port: port,
+              username: username,
+              password: password,
+              type: type,
+            );
+
+            if (!mounted) return;
+            Navigator.pop(context);
+            SnackBarUtils.showSuccess(context, '서버가 추가되었습니다.');
+          } catch (e) {
+            if (!mounted) return;
+            SnackBarUtils.showError(context, '서버 추가 실패: $e');
+          }
+        },
+      ),
+    );
+  }
+
   void _resetForm() {
     _nameController.clear();
     _hostController.clear();
@@ -190,7 +233,7 @@ class _ServersScreenState extends State<ServersScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: _showAddServerDialog,
+            onPressed: _showAddServerModal,
           ),
         ],
       ),

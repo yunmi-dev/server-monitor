@@ -1,11 +1,11 @@
 // lib/screens/stats/stats_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_client/providers/server_provider.dart';
 import 'package:flutter_client/utils/date_utils.dart';
 import 'package:flutter_client/utils/number_utils.dart';
-import 'package:flutter_client/models/time_series_data.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -17,15 +17,35 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _setupDataRefresh();
+  }
+
+  void _setupDataRefresh() {
+    // 초기 데이터 로드
+    _loadData();
+
+    // 주기적 새로고침 설정 (5초 간격)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) {
+        _loadData();
+      }
+    });
+  }
+
+  Future<void> _loadData() async {
+    final provider = Provider.of<ServerProvider>(context, listen: false);
+    await provider.refreshResourceUsage();
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -39,6 +59,9 @@ class _StatsScreenState extends State<StatsScreen>
         title: const Text('Statistics'),
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.pink,
+          labelColor: Colors.pink,
+          unselectedLabelColor: Colors.white,
           tabs: const [
             Tab(text: 'CPU'),
             Tab(text: 'Memory'),
@@ -46,73 +69,55 @@ class _StatsScreenState extends State<StatsScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildCpuStats(),
-          _buildMemoryStats(),
-          _buildNetworkStats(),
-        ],
+      body: Consumer<ServerProvider>(
+        builder: (context, provider, _) {
+          if (provider.isLoading && provider.servers.isEmpty) {
+            return const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+              ),
+            );
+          }
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildResourceTab(provider, 'cpu', Colors.blue),
+              _buildResourceTab(provider, 'memory', Colors.green),
+              _buildResourceTab(provider, 'network', Colors.purple),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildCpuStats() {
-    return Consumer<ServerProvider>(
-      builder: (context, provider, _) {
-        final cpuData = provider.getCombinedResourceHistory('cpu');
-        return _buildStatsSection(
-          title: 'CPU Usage',
-          data: cpuData,
-          color: Colors.blue,
-          formatValue: (value) => '${value.toStringAsFixed(1)}%',
-        );
-      },
-    );
-  }
+  Widget _buildResourceTab(ServerProvider provider, String type, Color color) {
+    final data = provider.getCombinedResourceHistory(type);
 
-  Widget _buildMemoryStats() {
-    return Consumer<ServerProvider>(
-      builder: (context, provider, _) {
-        final memoryData = provider.getCombinedResourceHistory('memory');
-        return _buildStatsSection(
-          title: 'Memory Usage',
-          data: memoryData,
-          color: Colors.green,
-          formatValue: (value) => '${value.toStringAsFixed(1)}%',
-        );
-      },
-    );
-  }
-
-  Widget _buildNetworkStats() {
-    return Consumer<ServerProvider>(
-      builder: (context, provider, _) {
-        final networkData = provider.getCombinedResourceHistory('network');
-        return _buildStatsSection(
-          title: 'Network Traffic',
-          data: networkData,
-          color: Colors.purple,
-          formatValue: (value) => NumberUtils.formatBandwidth(value),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatsSection({
-    required String title,
-    required List<TimeSeriesData> data,
-    required Color color,
-    required String Function(double) formatValue,
-  }) {
     if (data.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: Text(
+          'No data available',
+          style: TextStyle(color: Colors.white),
+        ),
+      );
     }
 
-    final maxValue = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    final minValue = data.map((e) => e.value).reduce((a, b) => a < b ? a : b);
-    final avgValue =
-        data.map((e) => e.value).reduce((a, b) => a + b) / data.length;
+    // 최근 30개의 데이터 포인트만 사용
+    final recentData = data.length > 30 ? data.sublist(data.length - 30) : data;
+
+    final values = recentData.map((d) => d.value).toList();
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    final minValue = values.reduce((a, b) => a < b ? a : b);
+    final avgValue = values.reduce((a, b) => a + b) / values.length;
+
+    String formatValue(double value) {
+      if (type == 'network') {
+        return NumberUtils.formatBandwidth(value);
+      }
+      return '${value.toStringAsFixed(1)}%';
+    }
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -145,17 +150,19 @@ class _StatsScreenState extends State<StatsScreen>
                     sideTitles: SideTitles(
                       showTitles: true,
                       getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= data.length) return const Text('');
+                        if (value.toInt() >= recentData.length)
+                          return const Text('');
                         return Text(
                           DateTimeUtils.formatShortTime(
-                              data[value.toInt()].timestamp),
+                            recentData[value.toInt()].timestamp,
+                          ),
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 12,
                           ),
                         );
                       },
-                      interval: data.length / 5,
+                      interval: recentData.length / 5,
                     ),
                   ),
                   leftTitles: AxisTitles(
@@ -182,12 +189,12 @@ class _StatsScreenState extends State<StatsScreen>
                 ),
                 borderData: FlBorderData(show: false),
                 minX: 0,
-                maxX: (data.length - 1).toDouble(),
+                maxX: (recentData.length - 1).toDouble(),
                 minY: 0,
                 maxY: maxValue * 1.1,
                 lineBarsData: [
                   LineChartBarData(
-                    spots: data.asMap().entries.map((entry) {
+                    spots: recentData.asMap().entries.map((entry) {
                       return FlSpot(
                         entry.key.toDouble(),
                         entry.value.value,
