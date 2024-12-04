@@ -1,5 +1,6 @@
 // lib/widgets/auth/social_login_button.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class SocialLoginButton extends StatefulWidget {
   final String provider;
@@ -87,6 +88,7 @@ class _SocialLoginButtonState extends State<SocialLoginButton>
         onTapDown: _handleTapDown,
         onTapUp: _handleTapUp,
         onTapCancel: _handleTapCancel,
+        onTap: widget.onPressed,
         child: Container(
           width: double.infinity,
           height: 48,

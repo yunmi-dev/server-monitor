@@ -134,35 +134,8 @@ class AuthService extends ChangeNotifier {
     });
   }
 
-  Future<User> signInWithGoogle() async {
-    return handleAuthRequest(() async {
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        throw AuthException('Google sign in cancelled');
-      }
-
-      final googleAuth = await googleUser.authentication;
-
-      // 서버로 ID 토큰 전송
-      final response = await _apiService.request(
-        path: '/auth/social-login',
-        method: 'POST',
-        data: {
-          'provider': 'google',
-          'token': googleAuth.idToken, // ID 토큰을 서버로 전송
-          'email': googleUser.email,
-        },
-      );
-
-      final authResult = AuthResult.fromJson(response.data);
-      await _handleAuthResult(authResult);
-      return authResult.user;
-    });
-  }
-
   Future<User> signInWithApple() async {
     return handleAuthRequest(() async {
-      // 개발용 Mock 응답
       if (kDebugMode) {
         // 더미 유저 데이터 생성
         final dummyUser = User(
@@ -173,7 +146,6 @@ class AuthService extends ChangeNotifier {
           updatedAt: DateTime.now(),
         );
 
-        // 더미 인증 결과 생성
         final dummyAuthResult = AuthResult(
           accessToken: 'dummy_apple_access_token',
           refreshToken: 'dummy_apple_refresh_token',
@@ -183,8 +155,6 @@ class AuthService extends ChangeNotifier {
         await _handleAuthResult(dummyAuthResult);
         return dummyUser;
       }
-
-      // 프로덕션 환경을 위한 구현 그대로 유지
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
@@ -210,6 +180,27 @@ class AuthService extends ChangeNotifier {
 
   Future<User> signInWithKakao() async {
     return handleAuthRequest(() async {
+      if (kDebugMode) {
+        // 더미 유저 데이터로 즉시 반환
+        final dummyUser = User(
+          id: 'kakao_${DateTime.now().millisecondsSinceEpoch}',
+          email: 'kakao_test@example.com',
+          name: '카카오 테스트',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        final dummyAuthResult = AuthResult(
+          accessToken: 'dummy_kakao_access_token',
+          refreshToken: 'dummy_kakao_refresh_token',
+          user: dummyUser,
+        );
+
+        await _handleAuthResult(dummyAuthResult);
+        return dummyUser;
+      }
+
+      // 프로덕션 코드는 그대로 유지
       if (await kakao.isKakaoTalkInstalled()) {
         await kakao.UserApi.instance.loginWithKakaoTalk();
       } else {
@@ -223,10 +214,10 @@ class AuthService extends ChangeNotifier {
       }
 
       final response = await _apiService.request(
-        path: '/auth/social-login', // URL 변경
+        path: '/auth/social-login',
         method: 'POST',
         data: {
-          'provider': 'kakao', // provider 필드 추가
+          'provider': 'kakao',
           'token': token!.accessToken,
         },
       );
@@ -239,6 +230,27 @@ class AuthService extends ChangeNotifier {
 
   Future<User> signInWithFacebook() async {
     return handleAuthRequest(() async {
+      if (kDebugMode) {
+        // 더미 유저 데이터로 즉시 반환
+        final dummyUser = User(
+          id: 'fb_${DateTime.now().millisecondsSinceEpoch}',
+          email: 'facebook_test@example.com',
+          name: 'Facebook 테스트',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        final dummyAuthResult = AuthResult(
+          accessToken: 'dummy_facebook_access_token',
+          refreshToken: 'dummy_facebook_refresh_token',
+          user: dummyUser,
+        );
+
+        await _handleAuthResult(dummyAuthResult);
+        return dummyUser;
+      }
+
+      // 프로덕션 코드는 그대로 유지
       final result = await FacebookAuth.instance.login(
         permissions: ['email', 'public_profile'],
       );
@@ -253,6 +265,52 @@ class AuthService extends ChangeNotifier {
         data: {
           'provider': 'facebook',
           'token': result.accessToken!.toString(),
+        },
+      );
+
+      final authResult = AuthResult.fromJson(response.data);
+      await _handleAuthResult(authResult);
+      return authResult.user;
+    });
+  }
+
+  Future<User> signInWithGoogle() async {
+    return handleAuthRequest(() async {
+      if (kDebugMode) {
+        // 더미 유저 데이터로 즉시 반환
+        final dummyUser = User(
+          id: 'google_${DateTime.now().millisecondsSinceEpoch}',
+          email: 'google_test@example.com',
+          name: 'Google 테스트',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        final dummyAuthResult = AuthResult(
+          accessToken: 'dummy_google_access_token',
+          refreshToken: 'dummy_google_refresh_token',
+          user: dummyUser,
+        );
+
+        await _handleAuthResult(dummyAuthResult);
+        return dummyUser;
+      }
+
+      // 프로덕션 코드는 그대로 유지
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        throw AuthException('Google sign in cancelled');
+      }
+
+      final googleAuth = await googleUser.authentication;
+
+      final response = await _apiService.request(
+        path: '/auth/social-login',
+        method: 'POST',
+        data: {
+          'provider': 'google',
+          'token': googleAuth.idToken,
+          'email': googleUser.email,
         },
       );
 

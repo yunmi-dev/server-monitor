@@ -89,13 +89,12 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       if (mounted) {
+        SnackBarUtils.showSuccess(context, AppConstants.loginSuccess);
         Navigator.pushReplacementNamed(context, '/dashboard');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        SnackBarUtils.showError(context, e.toString());
       }
     }
   }
