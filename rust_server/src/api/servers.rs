@@ -140,7 +140,9 @@ pub async fn test_connection(
     connection_info: web::Json<TestConnectionRequest>,
 ) -> Result<HttpResponse> {
     let start_time = std::time::Instant::now();
-    let timeout = Duration::from_secs(5);
+    let dns_timeout = Duration::from_secs(5);
+    let tcp_timeout = Duration::from_secs(5);
+
     let mut details = ConnectionDetails {
         dns_resolved: false,
         tcp_connected: false,
@@ -149,9 +151,18 @@ pub async fn test_connection(
         server_version: None,
     };
 
+    // TCP 연결 테스트 전에 호스트 검증 추가
+    if connection_info.host == "127.0.0.1" {
+        return Ok(HttpResponse::BadRequest().json(TestConnectionResponse {
+            success: false,
+            message: "For security reasons, connections to localhost are not allowed".to_string(),
+            details: Some(details),
+        }));
+    }
+
     // 1. DNS 조회 테스트
     let lookup_result = match tokio::time::timeout(
-        timeout,
+        dns_timeout,
         lookup_host(format!("{}:{}", connection_info.host, connection_info.port))
     ).await {
         Ok(Ok(addrs)) => {
@@ -172,7 +183,7 @@ pub async fn test_connection(
 
     // 2. TCP 연결 테스트
     let tcp_result = match tokio::time::timeout(
-        timeout,
+        tcp_timeout,  // timeout 대신 tcp_timeout 사용
         TcpStream::connect(format!("{}:{}", connection_info.host, connection_info.port))
     ).await {
         Ok(Ok(stream)) => {

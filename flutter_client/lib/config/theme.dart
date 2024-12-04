@@ -59,25 +59,49 @@ class AppTheme {
         fillColor: Colors.white.withOpacity(0.1),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(
+            color: Color(0xFFFF4099),
+            width: 1,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(
+            color: Color(0xFFFF4099),
+            width: 1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
           borderSide: const BorderSide(
-            color: Color.fromARGB(255, 247, 112, 175),
+            color: Color(0xFFFF4099),
             width: 2,
           ),
         ),
+        // 에러 상태일 때의 테두리
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
           borderSide: const BorderSide(
-            color: Color(0xFFCF6679),
+            color: Color(0xFFFF4099),
+            width: 1,
+          ),
+        ),
+        // 에러 상태에서 포커스될 때의 테두리
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+          borderSide: const BorderSide(
+            color: Color(0xFFFF4099),
             width: 2,
           ),
+        ),
+        errorStyle: const TextStyle(
+          color: Color(0xFFFF4099),
+        ),
+        labelStyle: const TextStyle(
+          color: Color(0xFFFF4099),
+        ),
+        hintStyle: TextStyle(
+          color: const Color(0xFFFF4099).withOpacity(0.7),
         ),
         contentPadding: const EdgeInsets.all(AppConstants.spacing),
       ),

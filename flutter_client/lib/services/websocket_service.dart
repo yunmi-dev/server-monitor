@@ -1,5 +1,6 @@
 // lib/services/websocket_service.dart
 import 'dart:async';
+import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/models/socket_message.dart';
@@ -120,7 +121,8 @@ class WebSocketService {
         if (socketMessage.type == MessageType.resourceMetrics) {
           logger.verbose('Received metrics message');
         } else {
-          logger.info('Received WebSocket message: ${socketMessage.type}');
+          logger.info(
+              'Received WebSocket message: $socketMessage.type'); // 중괄호 제거
         }
 
         _messageController.add(socketMessage);
@@ -197,8 +199,11 @@ class WebSocketService {
         timestamp: DateTime.now(),
       );
 
-      _channel?.sink.add(message.toJson());
-      logger.debug('Sent WebSocket message: ${message.type}');
+      // Map을 JSON 문자열로 직렬화
+      final jsonString = jsonEncode(message.toJson());
+      _channel?.sink.add(jsonString);
+
+      logger.debug('Sent WebSocket message: $message.type'); // 중괄호 제거
     } catch (e) {
       logger.error('Failed to send WebSocket message: $e');
       _handleError(e);

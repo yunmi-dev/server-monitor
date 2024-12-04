@@ -36,6 +36,31 @@ class _ServerAddScreenState extends State<ServerAddScreen> {
     super.dispose();
   }
 
+  Future<void> _testConnection() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await Provider.of<ServerProvider>(context, listen: false).testConnection(
+        host: _hostController.text,
+        port: int.parse(_portController.text),
+        username: _usernameController.text,
+        password: _passwordController.text,
+      );
+      if (mounted) {
+        SnackBarUtils.showSuccess(context, '연결 테스트 성공');
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarUtils.showError(context, '연결 테스트 실패: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _handleSubmit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -185,6 +210,38 @@ class _ServerAddScreenState extends State<ServerAddScreen> {
                   ],
                 ),
                 const SizedBox(height: AppConstants.spacing * 3),
+                // 연결 테스트 버튼
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _isLoading ? null : _testConnection,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppConstants.spacing * 2,
+                      ),
+                      side: const BorderSide(color: Colors.grey),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.cardBorderRadius,
+                        ),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : const Text('연결 테스트'),
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spacing * 2),
+                // 서버 추가 버튼
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
