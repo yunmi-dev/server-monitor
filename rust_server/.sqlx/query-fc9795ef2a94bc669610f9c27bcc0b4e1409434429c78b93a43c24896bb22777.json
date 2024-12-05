@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO logs (\n                id, level, message, component, server_id, timestamp,\n                metadata, stack_trace, source_location, correlation_id\n            )\n            VALUES ($1, $2::log_level, $3, $4, $5, $6, $7, $8, $9, $10)\n            RETURNING \n                id, \n                level as \"level: _\",\n                message,\n                component,\n                server_id,\n                timestamp,\n                metadata as \"metadata: JsonValue\",\n                stack_trace,\n                source_location,\n                correlation_id\n            ",
+  "query": "\n            WITH inserted AS (\n                INSERT INTO logs (\n                    id, level, message, component, server_id, timestamp,\n                    metadata, stack_trace, source_location, correlation_id\n                )\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n                RETURNING \n                    id, \n                    level as \"level: LogLevel\", \n                    message, \n                    component, \n                    server_id,\n                    timestamp, \n                    metadata as \"metadata!: JsonValue\",\n                    stack_trace, \n                    source_location, \n                    correlation_id\n            )\n            SELECT \n                i.*,\n                ts.tsv::text as message_tsv\n            FROM inserted i\n            CROSS JOIN LATERAL (\n                SELECT to_tsvector('english', i.message) as tsv\n            ) ts\n            ",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "level: _",
+        "name": "level: LogLevel",
         "type_info": {
           "Custom": {
             "name": "log_level",
@@ -48,7 +48,7 @@
       },
       {
         "ordinal": 6,
-        "name": "metadata: JsonValue",
+        "name": "metadata!: JsonValue",
         "type_info": "Jsonb"
       },
       {
@@ -64,6 +64,11 @@
       {
         "ordinal": 9,
         "name": "correlation_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "message_tsv",
         "type_info": "Text"
       }
     ],
@@ -104,8 +109,9 @@
       true,
       true,
       true,
-      true
+      true,
+      null
     ]
   },
-  "hash": "e6207c21b34c7f85da3afec776e21aa3936fd800adee7b1b0b156454a819d3a6"
+  "hash": "fc9795ef2a94bc669610f9c27bcc0b4e1409434429c78b93a43c24896bb22777"
 }

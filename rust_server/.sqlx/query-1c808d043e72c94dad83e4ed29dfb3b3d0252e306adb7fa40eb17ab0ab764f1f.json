@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT \n                id, \n                level as \"level: _\",\n                message,\n                component,\n                server_id,\n                timestamp,\n                metadata as \"metadata: JsonValue\",\n                stack_trace,\n                source_location,\n                correlation_id,\n                NULL as \"message_tsv?\"\n            FROM logs \n            WHERE id = $1\n            ",
+  "query": "\n            SELECT \n                id,\n                level as \"level!: LogLevel\",\n                message,\n                component,\n                server_id,\n                timestamp,\n                metadata as \"metadata!: JsonValue\",\n                stack_trace,\n                source_location,\n                correlation_id,\n                to_tsvector('english', message)::text as message_tsv\n            FROM logs \n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "level: _",
+        "name": "level!: LogLevel",
         "type_info": {
           "Custom": {
             "name": "log_level",
@@ -48,7 +48,7 @@
       },
       {
         "ordinal": 6,
-        "name": "metadata: JsonValue",
+        "name": "metadata!: JsonValue",
         "type_info": "Jsonb"
       },
       {
@@ -68,7 +68,7 @@
       },
       {
         "ordinal": 10,
-        "name": "message_tsv?",
+        "name": "message_tsv",
         "type_info": "Text"
       }
     ],
@@ -91,5 +91,5 @@
       null
     ]
   },
-  "hash": "22104b41e7b4c01f9c902b94b9b5572b15f0c9353aee33b22fb2d00dd441f800"
+  "hash": "1c808d043e72c94dad83e4ed29dfb3b3d0252e306adb7fa40eb17ab0ab764f1f"
 }
