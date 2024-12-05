@@ -8,62 +8,39 @@ import 'package:flutter_client/models/server.dart';
 import 'package:flutter_client/models/resource_usage.dart';
 import 'package:flutter_client/models/alert.dart';
 import 'package:flutter_client/models/socket_message.dart';
-// import 'package:flutter_client/models/alert_rule.dart';
-// import 'package:flutter_client/models/alert_status.dart';
 import 'package:flutter_client/models/log_entry.dart';
+// import 'package:dio/dio.dart';
 
 class ApiService {
   late final Dio _dio;
   final WebSocketService _webSocketService;
-  static const String API_PREFIX = '/api/v1'; // 여기서 한번만 정의
 
   ApiService({
     required String baseUrl,
     Dio? dio,
     WebSocketService? webSocketService,
   }) : _webSocketService = webSocketService ?? WebSocketService.instance {
-    _dio = dio ?? _createDio(baseUrl);
+    _dio = dio ??
+        Dio(BaseOptions(
+          baseUrl: baseUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+          contentType: 'application/json',
+          validateStatus: (status) {
+            return status != null && status < 500;
+          },
+          headers: {
+            'Accept': 'application/json',
+            'content-type': 'application/json',
+          },
+        ));
     _setupInterceptors();
-  }
-
-// ApiService class의 _handleRequest 메서드 내부 // Test
-  Future<T> _handleRequest<T>(
-    Future<Response<dynamic>> Function() request,
-    T Function(dynamic data) converter,
-  ) async {
-    try {
-      final response = await request();
-      debugPrint('API Response: ${response.data}'); // 응답 데이터 로깅 추가
-
-      if (response.data == null) {
-        throw ApiException(message: 'Empty response from server');
-      }
-
-      final apiResponse = response.data is ApiResponse
-          ? response.data as ApiResponse
-          : ApiResponse.fromJson(response.data as Map<String, dynamic>);
-
-      debugPrint('Parsed ApiResponse: ${apiResponse.data}'); // 파싱된 데이터 로깅 추가
-
-      if (!apiResponse.success) {
-        throw ApiException(
-          message: apiResponse.message ?? 'Request failed',
-          code: apiResponse.code,
-        );
-      }
-
-      return converter(apiResponse.data);
-    } catch (e, stack) {
-      debugPrint('Error in _handleRequest: $e'); // 에러 로깅 추가
-      debugPrint('Stack trace: $stack'); // 스택 트레이스 로깅 추가
-      rethrow;
-    }
   }
 
   Dio _createDio(String baseUrl) {
     return Dio(BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 10), // 타임아웃 시간 증가
+      baseUrl: baseUrl, // 이미 /api/v1이 포함되어 있어야 함
+      connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       contentType: 'application/json',
       validateStatus: (status) {
@@ -71,6 +48,7 @@ class ApiService {
       },
       headers: {
         'Accept': 'application/json',
+        'content-type': 'application/json',
       },
     ));
   }
@@ -85,55 +63,31 @@ class ApiService {
         },
       ));
     }
-
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onResponse: (response, handler) async {
-          if (response.data != null) {
-            // 응답이 비어있지 않고 Map 형태일 때만 ApiResponse로 변환
-            if (response.data is Map<String, dynamic>) {
-              try {
-                response.data = ApiResponse.fromJson(response.data);
-              } catch (e) {
-                debugPrint('Error parsing API response: $e');
-              }
-            }
-          }
-          return handler.next(response);
-        },
-      ),
-    );
   }
 
-  // Future<T> _handleRequest<T>(
-  //   Future<Response<dynamic>> Function() request,
-  //   T Function(dynamic data) converter,
-  // ) async {
-  //   try {
-  //     final response = await request();
+// 응답 처리 로직 수정
+  Future<T> _handleRequest<T>(
+    Future<Response<dynamic>> Function() request,
+    T Function(dynamic data) converter,
+  ) async {
+    try {
+      final response = await request();
+      debugPrint('Raw API Response: ${response.data}');
 
-  //     if (response.data == null) {
-  //       throw ApiException(message: 'Empty response from server');
-  //     }
+      if (response.statusCode == 404) {
+        throw ApiException(message: 'Resource not found');
+      }
 
-  //     final apiResponse = response.data is ApiResponse
-  //         ? response.data as ApiResponse
-  //         : ApiResponse.fromJson(response.data as Map<String, dynamic>);
+      if (response.data == null) {
+        throw ApiException(message: 'Empty response from server');
+      }
 
-  //     if (!apiResponse.success) {
-  //       throw ApiException(
-  //         message: apiResponse.message ?? 'Request failed',
-  //         code: apiResponse.code,
-  //       );
-  //     }
-
-  //     return converter(apiResponse.data);
-  //   } on DioException catch (e) {
-  //     throw DioErrorHandler.handle(e);
-  //   } catch (e) {
-  //     throw ApiException(message: e.toString());
-  //   }
-  // }
+      return converter(response.data);
+    } catch (e) {
+      debugPrint('Error in _handleRequest: $e');
+      rethrow;
+    }
+  }
 
   Future<Server> addServer({
     required String name,
@@ -143,50 +97,59 @@ class ApiService {
     required String password,
     required String type,
   }) async {
-    return _handleRequest<Server>(
-      () => _dio.post(
-        '$API_PREFIX/servers',
+    try {
+      final response = await _dio.post(
+        '/servers',
         data: {
-          'name': name,
-          'host': host,
+          'name': name.trim(),
+          'host': host.trim(),
           'port': port,
-          'username': username,
+          'username': username.trim(),
           'password': password,
-          'server_type': type,
+          'server_type':
+              type.toUpperCase(), // 'PHYSICAL', 'VIRTUAL', 'CLOUD' 형식으로 변환
         },
-      ),
-      (data) {
-        // data가 Map이 아닌 경우 처리
-        if (data is! Map<String, dynamic>) {
-          throw ApiException(message: 'Invalid server data format');
-        }
-        return Server.fromJson(data);
-      },
-    );
+      );
+
+      debugPrint('서버 응답: ${response.data}');
+
+      return Server.fromJson(response.data);
+    } on DioError catch (e) {
+      debugPrint('Dio 에러: ${e.message}');
+      debugPrint('응답 데이터: ${e.response?.data}');
+      throw DioErrorHandler.handle(e);
+    } catch (e) {
+      debugPrint('기타 에러: $e');
+      rethrow;
+    }
   }
 
   Future<List<Server>> getServers() async {
     try {
-      debugPrint('서버 목록 조회 시작');
-      final response = await _dio.get('$API_PREFIX/servers');
+      debugPrint('서버 목록 조회 시작...');
 
-      debugPrint('서버 응답: ${response.data}');
-      final apiResponse = ApiResponse.fromJson(response.data);
+      final response = await _dio.get('/servers');
+      debugPrint('서버 목록 응답: ${response.data}');
 
-      if (!apiResponse.success) {
-        throw ApiException(
-          message: apiResponse.message ?? '서버 목록을 불러오는데 실패했습니다',
-          code: apiResponse.code,
-        );
+      if (response.data == null) {
+        throw ApiException(message: '서버 목록을 불러오는데 실패했습니다');
       }
 
-      final List<dynamic> serversData = apiResponse.data as List;
-      return serversData.map((json) {
-        debugPrint('서버 데이터 파싱: $json');
-        return Server.fromJson(json as Map<String, dynamic>);
-      }).toList();
-    } catch (e) {
-      debugPrint('서버 목록 조회 오류: $e');
+      if (response.data is! List) {
+        throw ApiException(message: '서버 목록 형식이 올바르지 않습니다');
+      }
+
+      return (response.data as List)
+          .map((item) => Server.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } on DioError catch (e) {
+      // DioException을 DioError로 변경
+      debugPrint('Dio 에러: ${e.message}');
+      debugPrint('응답 데이터: ${e.response?.data}');
+      throw DioErrorHandler.handle(e);
+    } catch (e, stack) {
+      debugPrint('서버 목록 조회 실패: $e');
+      debugPrint('스택 트레이스: $stack');
       rethrow;
     }
   }
@@ -245,13 +208,10 @@ class ApiService {
   }
 
   // 서버 상태 조회
-  Future<ServerStatus> getServerStatus(String serverId) async {
-    return _handleRequest<ServerStatus>(
-      () => _dio.get('/servers/$serverId/status'),
-      (data) {
-        final statusStr = (data as Map<String, dynamic>)['status'] as String;
-        return ServerStatus.fromString(statusStr);
-      },
+  Future<Server> getServerStatus(String serverId) async {
+    return _handleRequest<Server>(
+      () => _dio.get('/servers/$serverId/status'), // /api/v1 제거
+      (data) => Server.fromJson(data as Map<String, dynamic>),
     );
   }
 
@@ -264,7 +224,7 @@ class ApiService {
   }) async {
     await _handleRequest<void>(
       () => _dio.post(
-        '$API_PREFIX/servers/test-connection',
+        '/servers/test-connection', // /api/v1 제거
         data: {
           'host': host,
           'port': port,

@@ -5,8 +5,6 @@ import 'package:flutter_client/providers/server_provider.dart';
 import 'package:flutter_client/constants/route_paths.dart';
 import 'package:flutter_client/models/server.dart';
 import 'package:flutter_client/config/constants.dart';
-import 'package:flutter_client/utils/snackbar_utils.dart';
-import 'package:flutter_client/utils/validation_utils.dart';
 import 'package:flutter_client/widgets/server/add_server_modal.dart';
 
 class ServersScreen extends StatefulWidget {
@@ -19,165 +17,30 @@ class ServersScreen extends StatefulWidget {
 class _ServersScreenState extends State<ServersScreen> {
   String _searchQuery = '';
   String _selectedStatus = 'All';
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _hostController = TextEditingController();
-  final _portController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  String _selectedType = 'Linux';
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _hostController.dispose();
-    _portController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  void _showAddServerDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Add Server'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Server Name',
-                      hintText: 'Enter server name',
-                    ),
-                    validator: ValidationUtils.validateServerName,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _hostController,
-                    decoration: const InputDecoration(
-                      labelText: 'Host',
-                      hintText: 'Enter host address',
-                    ),
-                    validator: ValidationUtils.validateHost,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _portController,
-                    decoration: const InputDecoration(
-                      labelText: 'Port',
-                      hintText: 'Enter port number',
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: ValidationUtils.validatePort,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      hintText: 'Enter username',
-                    ),
-                    validator: ValidationUtils.validateRequired,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      hintText: 'Enter password',
-                    ),
-                    obscureText: true,
-                    validator: ValidationUtils.validateRequired,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedType,
-                    decoration: const InputDecoration(
-                      labelText: 'Server Type',
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'Linux', child: Text('Linux')),
-                      DropdownMenuItem(
-                          value: 'Windows', child: Text('Windows')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedType = value!;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _resetForm();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (_formKey.currentState!.validate()) {
-                  try {
-                    await context.read<ServerProvider>().testConnection(
-                          host: _hostController.text,
-                          port: int.parse(_portController.text),
-                          username: _usernameController.text,
-                          password: _passwordController.text,
-                        );
-
-                    if (!context.mounted) return;
-
-                    await context.read<ServerProvider>().addServer(
-                          name: _nameController.text,
-                          host: _hostController.text,
-                          port: int.parse(_portController.text),
-                          username: _usernameController.text,
-                          password: _passwordController.text,
-                          type: _selectedType,
-                        );
-
-                    if (!context.mounted) return;
-
-                    Navigator.of(context).pop();
-                    _resetForm();
-                    SnackBarUtils.showSuccess(context, '서버가 추가되었습니다.');
-                  } catch (e) {
-                    SnackBarUtils.showError(context, '서버 추가 실패: $e');
-                  }
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _showAddServerModal() {
+    // BuildContext context 캡처
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AddServerModal(
         onAdd: (name, host, port, username, password, type) async {
+          final serverProvider =
+              Provider.of<ServerProvider>(context, listen: false);
           try {
-            // Provider 인스턴스 가져오기
-            final serverProvider =
-                Provider.of<ServerProvider>(context, listen: false);
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(content: Text('서버 연결 테스트 중...')),
+            );
 
-            // 연결 테스트
             await serverProvider.testConnection(
               host: host,
               port: port,
@@ -185,7 +48,10 @@ class _ServersScreenState extends State<ServersScreen> {
               password: password,
             );
 
-            // 서버 추가
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(content: Text('서버 추가 중...')),
+            );
+
             await serverProvider.addServer(
               name: name,
               host: host,
@@ -195,25 +61,18 @@ class _ServersScreenState extends State<ServersScreen> {
               type: type,
             );
 
-            if (!mounted) return;
-            Navigator.pop(context);
-            SnackBarUtils.showSuccess(context, '서버가 추가되었습니다.');
+            navigator.pop();
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(content: Text('서버가 추가되었습니다.')),
+            );
           } catch (e) {
-            if (!mounted) return;
-            SnackBarUtils.showError(context, '서버 추가 실패: $e');
+            scaffoldMessenger.showSnackBar(
+              SnackBar(content: Text('서버 추가 실패: $e')),
+            );
           }
         },
       ),
     );
-  }
-
-  void _resetForm() {
-    _nameController.clear();
-    _hostController.clear();
-    _portController.clear();
-    _usernameController.clear();
-    _passwordController.clear();
-    _selectedType = 'Linux';
   }
 
   @override

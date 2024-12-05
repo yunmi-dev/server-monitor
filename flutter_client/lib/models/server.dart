@@ -12,10 +12,10 @@ class Server {
   final String uptime;
   final List<Process> processes;
   final List<LogEntry> recentLogs;
-  final String? host;
+  final String? hostname; // host 대신 hostname 사용 (백엔드와 일치)
   final int? port;
   final String? username;
-  final String? type;
+  final ServerType serverType; // serverType 사용
 
   const Server({
     required this.id,
@@ -25,12 +25,13 @@ class Server {
     required this.uptime,
     required this.processes,
     required this.recentLogs,
-    this.host,
+    this.hostname,
     this.port,
     this.username,
-    this.type,
+    this.serverType = ServerType.physical, // 기본값 설정
   });
 
+  // 필요한 getter들 추가
   bool get isOnline => status == ServerStatus.online;
 
   bool get hasWarnings =>
@@ -38,54 +39,35 @@ class Server {
       status == ServerStatus.critical ||
       resources.hasWarning;
 
-  double get cpuUsage => resources.cpu;
-  double get memoryUsage => resources.memory;
-  double get diskUsage => resources.disk;
+  // host getter 추가 (hostname의 별칭)
+  String? get host => hostname;
+
+  // type getter 추가 (serverType을 String으로 변환)
+  String get type => serverType.toString().split('.').last;
 
   factory Server.fromJson(Map<String, dynamic> json) {
     return Server(
-      id: json['id'],
-      name: json['name'],
-      status: ServerStatus.fromString(json['status']),
-      resources: ResourceUsage.fromJson(json['resources']),
-      uptime: json['uptime'],
-      processes:
-          (json['processes'] as List).map((p) => Process.fromJson(p)).toList(),
-      recentLogs: (json['recent_logs'] as List)
-          .map((log) => LogEntry.fromJson(log))
-          .toList(),
-      host: json['host'],
+      id: json['id'] ?? '',
+      name: json['name'] ?? 'Unknown',
+      status: ServerStatus.fromString(json['status'] ?? 'offline'),
+      resources: json['resources'] != null
+          ? ResourceUsage.fromJson(json['resources'])
+          : ResourceUsage.empty(),
+      uptime: json['uptime'] ?? '0s',
+      processes: (json['processes'] as List?)
+              ?.map((p) => Process.fromJson(p))
+              .toList() ??
+          [],
+      recentLogs: (json['recent_logs'] as List?)
+              ?.map((log) => LogEntry.fromJson(log))
+              .toList() ??
+          [],
+      hostname: json['hostname'] ?? json['host'],
       port: json['port'],
       username: json['username'],
-      type: json['type'],
-    );
-  }
-
-  Server copyWith({
-    String? id,
-    String? name,
-    ServerStatus? status,
-    ResourceUsage? resources,
-    String? uptime,
-    List<Process>? processes,
-    List<LogEntry>? recentLogs,
-    String? host,
-    int? port,
-    String? username,
-    String? type,
-  }) {
-    return Server(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      status: status ?? this.status,
-      resources: resources ?? this.resources,
-      uptime: uptime ?? this.uptime,
-      processes: processes ?? this.processes,
-      recentLogs: recentLogs ?? this.recentLogs,
-      host: host ?? this.host,
-      port: port ?? this.port,
-      username: username ?? this.username,
-      type: type ?? this.type,
+      serverType: json['server_type'] != null
+          ? ServerType.fromString(json['server_type'])
+          : ServerType.physical,
     );
   }
 
@@ -98,11 +80,52 @@ class Server {
       'uptime': uptime,
       'processes': processes.map((p) => p.toJson()).toList(),
       'recent_logs': recentLogs.map((log) => log.toJson()).toList(),
-      'host': host,
+      'hostname': hostname,
       'port': port,
       'username': username,
-      'type': type,
+      'server_type': serverType.toString().split('.').last.toUpperCase(),
     };
+  }
+
+  Server copyWith({
+    String? id,
+    String? name,
+    ServerStatus? status,
+    ResourceUsage? resources,
+    String? uptime,
+    List<Process>? processes,
+    List<LogEntry>? recentLogs,
+    String? hostname,
+    int? port,
+    String? username,
+    ServerType? serverType,
+  }) {
+    return Server(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      status: status ?? this.status,
+      resources: resources ?? this.resources,
+      uptime: uptime ?? this.uptime,
+      processes: processes ?? this.processes,
+      recentLogs: recentLogs ?? this.recentLogs,
+      hostname: hostname ?? this.hostname,
+      port: port ?? this.port,
+      username: username ?? this.username,
+      serverType: serverType ?? this.serverType,
+    );
+  }
+}
+
+enum ServerType {
+  physical,
+  virtual,
+  cloud;
+
+  static ServerType fromString(String type) {
+    return ServerType.values.firstWhere(
+      (e) => e.toString().split('.').last.toLowerCase() == type.toLowerCase(),
+      orElse: () => ServerType.physical,
+    );
   }
 }
 

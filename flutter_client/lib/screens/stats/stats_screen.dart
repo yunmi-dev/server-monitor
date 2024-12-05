@@ -23,19 +23,18 @@ class _StatsScreenState extends State<StatsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _setupDataRefresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupDataRefresh();
+    });
   }
 
   void _setupDataRefresh() {
-    // 초기 데이터 로드
-    _loadData();
-
-    // 주기적 새로고침 설정 (5초 간격)
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) {
         _loadData();
       }
     });
+    _loadData(); // 초기 데이터 로드해야
   }
 
   Future<void> _loadData() async {

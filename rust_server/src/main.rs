@@ -22,18 +22,19 @@ mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
-    // Environment setup
     dotenv().ok();
     setup_logging();
     
-    // Database setup
     let db_pool = setup_database().await.map_err(|e| {
         std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
     })?;
+    
+    // Arc로 Repository 생성
     let repository = Arc::new(Repository::new(db_pool));
     
-    // Services setup
-    let monitoring_service = MonitoringService::new(repository.clone());
+    // 두 서비스 모두 Arc<Repository>를 사용하도록 설정
+    let app_repository = web::Data::new(repository.clone());
+    let monitoring_service = web::Data::new(MonitoringService::new(repository));
 
     // Server address setup
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
@@ -43,13 +44,12 @@ async fn main() -> Result<(), std::io::Error> {
         .expect("PORT must be a number");
     let server_address = format!("{}:{}", host, port);
 
-    // Server setup
     HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(setup_cors())
-            .app_data(web::Data::new(monitoring_service.clone()))
-            .app_data(web::Data::new(repository.clone()))
+            .app_data(app_repository.clone())            // app_data로 전달
+            .app_data(monitoring_service.clone())        // app_data로 전달
             .configure(api::configure_routes)
     })
     .bind(&server_address)?

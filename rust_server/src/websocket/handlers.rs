@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use crate::monitoring::MonitoringService;
-use crate::db::{repository::Repository, models::MetricsSnapshot};
+use crate::db::models::MetricsSnapshot;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -23,13 +23,12 @@ pub struct WebSocketConnection {
 }
 
 impl WebSocketConnection {
-    pub fn new(monitoring_service: MonitoringService, _repository: Arc<Repository>) -> Self {
+    pub fn new(monitoring_service: MonitoringService) -> Self {
         Self {
             last_heartbeat: Instant::now(),
             monitoring_service,
             subscription_handles: Arc::new(Mutex::new(HashMap::new())),
             server_id: None,
-            //repository,
         }
     }
 

@@ -1,5 +1,6 @@
 // lib/widgets/server/add_server_modal.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_client/utils/validation_utils.dart';
 
 class AddServerModal extends StatefulWidget {
   final Function(String, String, int, String, String, String) onAdd;
@@ -38,17 +39,19 @@ class _AddServerModalState extends State<AddServerModal> {
       setState(() => _isLoading = true);
 
       try {
+        final port = int.tryParse(_portController.text);
+        if (port == null) {
+          throw Exception('Invalid port number');
+        }
+
         await widget.onAdd(
-          _nameController.text,
-          _hostController.text,
-          int.parse(_portController.text),
-          _usernameController.text,
+          _nameController.text.trim(),
+          _hostController.text.trim(),
+          port,
+          _usernameController.text.trim(),
           _passwordController.text,
           _selectedType,
         );
-        if (mounted) Navigator.of(context).pop();
-      } catch (e) {
-        // 에러 처리
       } finally {
         if (mounted) {
           setState(() => _isLoading = false);
@@ -83,6 +86,7 @@ class _AddServerModalState extends State<AddServerModal> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
+                validator: ValidationUtils.validateServerName,
                 decoration: InputDecoration(
                   labelText: 'Server Name',
                   prefixIcon: Icon(
@@ -116,6 +120,7 @@ class _AddServerModalState extends State<AddServerModal> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _hostController,
+                validator: ValidationUtils.validateHost,
                 decoration: InputDecoration(
                   labelText: 'Host',
                   prefixIcon: Icon(
@@ -149,6 +154,7 @@ class _AddServerModalState extends State<AddServerModal> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _portController,
+                validator: ValidationUtils.validatePort,
                 decoration: InputDecoration(
                   labelText: 'Port',
                   prefixIcon: Icon(
@@ -183,6 +189,7 @@ class _AddServerModalState extends State<AddServerModal> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _usernameController,
+                validator: ValidationUtils.validateRequired,
                 decoration: InputDecoration(
                   labelText: 'Username',
                   prefixIcon: Icon(
@@ -216,6 +223,7 @@ class _AddServerModalState extends State<AddServerModal> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _passwordController,
+                validator: ValidationUtils.validateRequired,
                 decoration: InputDecoration(
                   labelText: 'Password',
                   prefixIcon: Icon(

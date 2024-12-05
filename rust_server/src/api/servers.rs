@@ -6,9 +6,12 @@ use ssh2::Session;
 use tokio::net::{TcpStream, lookup_host};
 use std::time::Duration;
 use std::io::Read;
+use std::sync::Arc;
+use serde_json::json;
 use crate::db::{models::{Server, ServerType}, repository::Repository};
+use crate::models::logs::LogEntry;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct CreateServerRequest {
     pub name: String,
     pub host: String,
@@ -47,32 +50,101 @@ struct ConnectionDetails {
     server_version: Option<String>,
 }
 
+#[derive(serde::Serialize)]
+pub struct ServerStatus {
+    pub cpu_usage: f64,
+    pub memory_usage: f64,
+    pub disk_usage: f64,
+    pub uptime: i64,
+    pub processes: Vec<ProcessInfo>,
+    pub is_online: bool,
+}
+
+#[derive(serde::Serialize)]
+pub struct ServerStatusResponse {
+    pub id: String,
+    pub name: String,
+    pub status: String,
+    pub resources: ResourceUsage,
+    pub uptime: String,
+    pub processes: Vec<ProcessInfo>,
+    pub recent_logs: Vec<LogEntry>,
+}
+
+#[derive(serde::Serialize)]
+pub struct ProcessInfo {
+    pub pid: i32,
+    pub name: String,
+    pub cpu_usage: f64,
+    pub memory_usage: f64,
+}
+
+#[derive(serde::Serialize)]
+pub struct ResourceUsage {
+    pub cpu: f64,
+    pub memory: f64,
+    pub disk: f64,
+    pub network: String,
+    pub history: Vec<ResourceHistory>,
+    pub last_updated: Option<DateTime<Utc>>,
+}
+
+#[derive(serde::Serialize)]
+pub struct ResourceHistory {
+    pub timestamp: DateTime<Utc>,
+    pub cpu: f64,
+    pub memory: f64,
+    pub disk: f64,
+    pub network: String,
+}
+
 // 서버 생성
 pub async fn create_server(
-    repo: web::Data<Repository>,
+    repo: web::Data<Arc<Repository>>,
     server_info: web::Json<CreateServerRequest>,
 ) -> Result<HttpResponse> {
+    // hostname 중복 체크
+    if let Ok(Some(_)) = repo.get_server_by_hostname(&server_info.host).await {
+        return Ok(HttpResponse::Conflict().json(json!({
+            "error": "Server with this hostname already exists"
+        })));
+    }
+
+    tracing::debug!("Creating server with info: {:?}", server_info);
+
     let server = Server {
         id: Uuid::new_v4().to_string(),
         name: server_info.name.clone(),
         hostname: server_info.host.clone(),
-        ip_address: server_info.host.clone(),
+        ip_address: server_info.host.clone(), // 실제 운영에서는 DNS 조회 필요
         location: "Unknown".to_string(),
+        description: None,                    // optional
         server_type: server_info.server_type.clone(),
-        is_online: false,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
+        is_online: false,                    // default false
+        last_seen_at: None,                  // optional
+        metadata: Some(serde_json::json!({})),  // default '{}'::jsonb
+        created_by: None,                    // optional
+        created_at: Utc::now(),              // default CURRENT_TIMESTAMP
+        updated_at: Utc::now(),              // default CURRENT_TIMESTAMP
     };
 
-    let result = repo.create_server(server).await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
-
-    Ok(HttpResponse::Created().json(result))
+    match repo.create_server(server).await {
+        Ok(created_server) => {
+            tracing::info!("Server created successfully: {:?}", created_server);
+            Ok(HttpResponse::Created().json(created_server))
+        }
+        Err(e) => {
+            tracing::error!("Failed to create server: {:?}", e);
+            Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": format!("Failed to create server: {}", e)
+            })))
+        }
+    }
 }
 
 // 서버 목록 조회
 pub async fn get_servers(
-    repo: web::Data<Repository>,
+    repo: web::Data<Arc<Repository>>,
 ) -> Result<HttpResponse> {
     let servers = repo.list_servers().await
         .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
@@ -104,6 +176,37 @@ pub async fn update_server_status(
         .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
 
     Ok(HttpResponse::Ok().finish())
+}
+
+// 서버 상태 가져오기
+pub async fn get_server_status(
+    repo: web::Data<Arc<Repository>>,
+    server_id: web::Path<String>,
+) -> Result<HttpResponse> {
+    let server = match repo.get_server(&server_id).await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))? {
+        Some(server) => server,
+        None => return Ok(HttpResponse::NotFound().finish()),
+    };
+
+    let status = ServerStatusResponse {
+        id: server.id.clone(),
+        name: server.name.clone(),
+        resources: ResourceUsage {
+            cpu: 0.0,
+            memory: 0.0,
+            disk: 0.0,
+            network: "0 B/s".to_string(),
+            history: vec![],
+            last_updated: None,
+        },
+        status: if server.is_online { "online" } else { "offline" }.to_string(),
+        uptime: "0s".to_string(),
+        processes: vec![],
+        recent_logs: vec![],
+    };
+
+    Ok(HttpResponse::Ok().json(status))
 }
 
 // 서버 삭제

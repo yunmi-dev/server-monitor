@@ -23,20 +23,31 @@ impl Repository {
             Server,
             r#"
             INSERT INTO servers 
-            (id, name, hostname, ip_address, location, server_type, is_online, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6::text::server_type, $7, $8, $9)
+            (id, name, hostname, ip_address, location, description, server_type, 
+             is_online, last_seen_at, metadata, created_by, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7::text::server_type, $8, $9, $10, $11, $12, $13)
             RETURNING 
                 id, name, hostname, ip_address, location,
-                server_type as "server_type: ServerType", 
-                is_online, created_at, updated_at
+                description,
+                server_type as "server_type: ServerType",
+                is_online,
+                last_seen_at,
+                metadata,
+                created_by,
+                created_at,
+                updated_at
             "#,
             server.id,
             server.name,
             server.hostname,
             server.ip_address,
             server.location,
+            server.description,
             server.server_type.to_string(),
             server.is_online,
+            server.last_seen_at,
+            server.metadata,
+            server.created_by,
             server.created_at,
             server.updated_at,
         )
@@ -45,15 +56,20 @@ impl Repository {
     
         Ok(result)
     }
-    
+
     pub async fn get_server(&self, id: &str) -> Result<Option<Server>> {
         let result = sqlx::query_as!(
             Server,
             r#"
             SELECT 
                 id, name, hostname, ip_address, location,
+                description,
                 server_type as "server_type: ServerType",
-                is_online, created_at, updated_at
+                is_online,
+                last_seen_at,
+                metadata,
+                created_by,
+                created_at, updated_at
             FROM servers 
             WHERE id = $1
             "#,
@@ -61,28 +77,32 @@ impl Repository {
         )
         .fetch_optional(&self.pool)
         .await?;
-    
+
         Ok(result)
     }
-    
+
     pub async fn list_servers(&self) -> Result<Vec<Server>> {
         let results = sqlx::query_as!(
             Server,
             r#"
             SELECT 
                 id, name, hostname, ip_address, location,
+                description,
                 server_type as "server_type: ServerType",
-                is_online, created_at, updated_at
+                is_online,
+                last_seen_at,
+                metadata,
+                created_by,
+                created_at, updated_at
             FROM servers 
             ORDER BY created_at DESC
             "#
         )
         .fetch_all(&self.pool)
         .await?;
-    
+
         Ok(results)
     }
-
 
     pub async fn delete_server(&self, id: &str) -> Result<()> {
         sqlx::query!(
@@ -332,6 +352,30 @@ impl Repository {
         .await?;
 
         Ok(())
+    }
+
+    pub async fn get_server_by_hostname(&self, hostname: &str) -> Result<Option<Server>> {
+        let result = sqlx::query_as!(
+            Server,
+            r#"
+            SELECT 
+                id, name, hostname, ip_address, location,
+                description,
+                server_type as "server_type: ServerType",
+                is_online,
+                last_seen_at,
+                metadata,
+                created_by,
+                created_at, updated_at
+            FROM servers 
+            WHERE hostname = $1
+            "#,
+            hostname
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+    
+        Ok(result)
     }
 
     pub async fn create_log(&self, log: LogEntry) -> Result<LogEntry> {

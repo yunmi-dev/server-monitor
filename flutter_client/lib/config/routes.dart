@@ -10,7 +10,7 @@ import 'package:flutter_client/screens/splash_screen.dart';
 import 'package:flutter_client/screens/dashboard/dashboard_screen.dart';
 import 'package:flutter_client/screens/server/server_list_screen.dart';
 import 'package:flutter_client/screens/server/server_details_screen.dart';
-import 'package:flutter_client/screens/server/server_add_screen.dart';
+import 'package:flutter_client/screens/server/add_server_screen.dart';
 import 'package:flutter_client/screens/alerts/alerts_screen.dart';
 import 'package:flutter_client/screens/settings/settings_screen.dart';
 import 'package:flutter_client/screens/settings/profile_screen.dart';

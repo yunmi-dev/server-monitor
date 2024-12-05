@@ -56,15 +56,17 @@ class ServerProvider with ChangeNotifier {
     required String type,
   }) async {
     _setLoading(true);
-    try {
-      debugPrint('서버 추가 요청 데이터: {');
-      debugPrint('  name: $name,');
-      debugPrint('  host: $host,');
-      debugPrint('  port: $port,');
-      debugPrint('  username: $username,');
-      debugPrint('  type: $type');
-      debugPrint('}');
 
+    try {
+      // 1. 우선 연결 테스트
+      await testConnection(
+        host: host,
+        port: port,
+        username: username,
+        password: password,
+      );
+
+      // 2. 서버 추가
       final server = await _apiService.addServer(
         name: name,
         host: host,
@@ -74,27 +76,17 @@ class ServerProvider with ChangeNotifier {
         type: type,
       );
 
-      // 응답 데이터 로깅
-      debugPrint('서버 응답 데이터: ${server.toJson()}');
-
-      // 서버 목록에 추가
+      // 3. 서버 목록에 추가
       _servers.add(server);
 
-      // WebSocket 연결 설정
+      // 4. 모니터링 시작
       _webSocketService.subscribeToServerMetrics(server.id);
-
-      // 서버 상태 모니터링 시작
       _startServerMonitoring(server.id);
 
-      // 전체 서버 목록 새로고침
-      await loadServers();
-
-      _error = null;
       notifyListeners();
-    } catch (e, stackTrace) {
-      debugPrint('서버 추가 에러: $e');
-      debugPrint('스택 트레이스: $stackTrace');
-      _error = ErrorUtils.getErrorMessage(e);
+    } catch (e, stack) {
+      debugPrint('서버 추가 실패: $e');
+      debugPrint('스택 트레이스: $stack');
       rethrow;
     } finally {
       _setLoading(false);
@@ -196,13 +188,14 @@ class ServerProvider with ChangeNotifier {
 
   Future<void> refreshServerStatus(String serverId) async {
     try {
-      final status = await _apiService.getServerStatus(serverId);
+      final updatedServer = await _apiService.getServerStatus(serverId);
       final index = _servers.indexWhere((s) => s.id == serverId);
       if (index != -1) {
-        _servers[index] = _servers[index].copyWith(status: status);
+        _servers[index] = updatedServer;
         notifyListeners();
       }
     } catch (e) {
+      debugPrint('Error refreshing server status: $e');
       _error = ErrorUtils.getErrorMessage(e);
     }
   }

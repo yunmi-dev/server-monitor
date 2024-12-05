@@ -53,7 +53,7 @@ macro_rules! impl_common_traits {
 pub enum ServerType {
     Physical,
     Virtual,
-    Container,
+    Container
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
@@ -93,7 +93,6 @@ impl_common_traits!(UserRole, {
     Viewer => "viewer"
 });
 
-
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Server {
     pub id: String,
@@ -101,9 +100,13 @@ pub struct Server {
     pub hostname: String,
     pub ip_address: String,
     pub location: String,
+    pub description: Option<String>,
     #[sqlx(rename = "server_type")]
     pub server_type: ServerType,
     pub is_online: bool,
+    pub last_seen_at: Option<DateTime<Utc>>,
+    pub metadata: Option<JsonValue>,
+    pub created_by: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
