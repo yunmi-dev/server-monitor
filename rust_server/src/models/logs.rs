@@ -20,26 +20,32 @@ pub enum LogLevel {
     Critical,
 }
 
-#[derive(Debug, Clone)]
-pub struct ParseLogLevelError(String);
-
 impl std::fmt::Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LogLevel::Debug => write!(f, "debug"),
-            LogLevel::Info => write!(f, "info"),
-            LogLevel::Warning => write!(f, "warning"),
-            LogLevel::Alert => write!(f, "alert"),
-            LogLevel::Critical => write!(f, "critical"),
-        }
+        let level = match self {
+            LogLevel::Debug => "debug",
+            LogLevel::Info => "info",
+            LogLevel::Warning => "warning",
+            LogLevel::Alert => "alert",
+            LogLevel::Critical => "critical",
+        };
+        write!(f, "{}", level)
     }
 }
 
-impl From<String> for LogLevel {
-    fn from(s: String) -> Self {
-        LogLevel::from_str(&s).unwrap_or(LogLevel::Info)
+#[derive(Debug, Clone)]
+pub struct ParseLogLevelError {
+    pub input: String,
+    pub message: String,
+}
+
+impl std::fmt::Display for ParseLogLevelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid log level '{}': {}", self.input, self.message)
     }
 }
+
+impl std::error::Error for ParseLogLevelError {}
 
 impl FromStr for LogLevel {
     type Err = ParseLogLevelError;
@@ -51,7 +57,10 @@ impl FromStr for LogLevel {
             "warning" => Ok(LogLevel::Warning),
             "alert" => Ok(LogLevel::Alert),
             "critical" => Ok(LogLevel::Critical),
-            _ => Err(ParseLogLevelError(format!("Invalid log level: {}", s))),
+            _ => Err(ParseLogLevelError {
+                input: s.to_string(),
+                message: "Expected one of: debug, info, warning, alert, critical".to_string(),
+            }),
         }
     }
 }

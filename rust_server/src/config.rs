@@ -1,6 +1,7 @@
 // src/config.rs
 use serde::Deserialize;
-use ::config::{Config, ConfigError, Environment, File};
+
+pub use self::ServerConfig as Config;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ServerConfig {
@@ -8,6 +9,22 @@ pub struct ServerConfig {
     pub database: DatabaseConfig,
     pub auth: AuthConfig,
     pub monitoring: MonitoringConfig,
+    pub encryption: EncryptionConfig,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct EncryptionConfig {
+    pub key: String,      // 32바이트 암호화 키 (base64 인코딩)
+    pub nonce: String,    // 12바이트 nonce (base64 인코딩)
+}
+
+impl Default for EncryptionConfig {
+    fn default() -> Self {
+        Self {
+            key: std::env::var("ENCRYPTION_KEY").unwrap_or_else(|_| "your-32-byte-secret-key-here".to_string()),
+            nonce: std::env::var("ENCRYPTION_NONCE").unwrap_or_else(|_| "unique-nonce12".to_string()),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -61,15 +78,6 @@ impl Default for AuthConfig {
 }
 
 impl ServerConfig {
-    pub fn new() -> Result<Self, ConfigError> {
-        let builder = Config::builder()
-            .add_source(File::with_name("config/default"))
-            .add_source(File::with_name("config/local").required(false))
-            .add_source(Environment::with_prefix("APP"));
-
-        builder.build()?.try_deserialize()
-    }
-
     pub fn with_defaults() -> Self {
         Self {
             server: HttpServerConfig {
@@ -95,6 +103,7 @@ impl ServerConfig {
                     disk_critical: 90.0,
                 },
             },
+            encryption: EncryptionConfig::default(),
         }
     }
 }

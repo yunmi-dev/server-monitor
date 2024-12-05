@@ -15,7 +15,7 @@ pub struct CreateLogRequest {
     pub message: String,
     pub component: String,
     pub server_id: Option<String>,
-    #[serde(default)]  //null일 경우 None으로 처리
+    #[serde(default)]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
     pub stack_trace: Option<String>,
     pub source_location: Option<String>,

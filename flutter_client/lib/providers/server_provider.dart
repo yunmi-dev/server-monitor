@@ -58,7 +58,6 @@ class ServerProvider with ChangeNotifier {
     _setLoading(true);
 
     try {
-      // 1. 우선 연결 테스트
       await testConnection(
         host: host,
         port: port,
@@ -66,20 +65,16 @@ class ServerProvider with ChangeNotifier {
         password: password,
       );
 
-      // 2. 서버 추가
       final server = await _apiService.addServer(
         name: name,
         host: host,
         port: port,
         username: username,
         password: password,
-        type: type,
+        type: type, // 'Physical', 'Virtual', 'Container' 중 하나
       );
 
-      // 3. 서버 목록에 추가
       _servers.add(server);
-
-      // 4. 모니터링 시작
       _webSocketService.subscribeToServerMetrics(server.id);
       _startServerMonitoring(server.id);
 

@@ -23,24 +23,24 @@ impl Repository {
             Server,
             r#"
             INSERT INTO servers 
-            (id, name, hostname, ip_address, location, description, server_type, 
-             is_online, last_seen_at, metadata, created_by, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7::text::server_type, $8, $9, $10, $11, $12, $13)
+            (id, name, hostname, ip_address, port, username, encrypted_password,
+             location, description, server_type, is_online, last_seen_at, 
+             metadata, created_by, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text::server_type, 
+                    $11, $12, $13, $14, $15, $16)
             RETURNING 
-                id, name, hostname, ip_address, location,
-                description,
+                id, name, hostname, ip_address, port, username, encrypted_password,
+                location, description,
                 server_type as "server_type: ServerType",
-                is_online,
-                last_seen_at,
-                metadata,
-                created_by,
-                created_at,
-                updated_at
+                is_online, last_seen_at, metadata, created_by, created_at, updated_at
             "#,
             server.id,
             server.name,
             server.hostname,
             server.ip_address,
+            server.port,
+            server.username,
+            server.encrypted_password,
             server.location,
             server.description,
             server.server_type.to_string(),
@@ -56,20 +56,16 @@ impl Repository {
     
         Ok(result)
     }
-
+    
     pub async fn get_server(&self, id: &str) -> Result<Option<Server>> {
         let result = sqlx::query_as!(
             Server,
             r#"
             SELECT 
-                id, name, hostname, ip_address, location,
-                description,
+                id, name, hostname, ip_address, port, username, encrypted_password,
+                location, description,
                 server_type as "server_type: ServerType",
-                is_online,
-                last_seen_at,
-                metadata,
-                created_by,
-                created_at, updated_at
+                is_online, last_seen_at, metadata, created_by, created_at, updated_at
             FROM servers 
             WHERE id = $1
             "#,
@@ -77,7 +73,7 @@ impl Repository {
         )
         .fetch_optional(&self.pool)
         .await?;
-
+    
         Ok(result)
     }
 
@@ -86,16 +82,11 @@ impl Repository {
             Server,
             r#"
             SELECT 
-                id, name, hostname, ip_address, location,
-                description,
+                id, name, hostname, ip_address, port, username, encrypted_password,
+                location, description,
                 server_type as "server_type: ServerType",
-                is_online,
-                last_seen_at,
-                metadata,
-                created_by,
-                created_at, updated_at
+                is_online, last_seen_at, metadata, created_by, created_at, updated_at
             FROM servers 
-            ORDER BY created_at DESC
             "#
         )
         .fetch_all(&self.pool)
@@ -359,14 +350,10 @@ impl Repository {
             Server,
             r#"
             SELECT 
-                id, name, hostname, ip_address, location,
-                description,
+                id, name, hostname, ip_address, port, username, encrypted_password,
+                location, description,
                 server_type as "server_type: ServerType",
-                is_online,
-                last_seen_at,
-                metadata,
-                created_by,
-                created_at, updated_at
+                is_online, last_seen_at, metadata, created_by, created_at, updated_at
             FROM servers 
             WHERE hostname = $1
             "#,
@@ -374,7 +361,7 @@ impl Repository {
         )
         .fetch_optional(&self.pool)
         .await?;
-    
+
         Ok(result)
     }
 
@@ -438,8 +425,8 @@ impl Repository {
             source_location: result.source_location,
             correlation_id: result.correlation_id,
             message_tsv: result.message_tsv,
-        })
-            }
+        }) 
+    }
 
     pub async fn get_log(&self, id: &str) -> Result<Option<LogEntry>> {
         sqlx::query_as!(
@@ -447,7 +434,7 @@ impl Repository {
             r#"
             SELECT 
                 id,
-                level::text as "level!",
+                level as "level!: LogLevel",
                 message,
                 component,
                 server_id,
@@ -456,7 +443,7 @@ impl Repository {
                 stack_trace,
                 source_location,
                 correlation_id,
-                message_tsv::text as message_tsv
+                to_tsvector('english', message)::text as message_tsv
             FROM logs 
             WHERE id = $1
             "#,
@@ -472,16 +459,16 @@ impl Repository {
             r#"
             SELECT 
                 id, 
-                level::text as level,
+                level as "level!: LogLevel",
                 message,
                 component,
                 server_id,
                 timestamp,
-                metadata,
+                metadata as "metadata!: JsonValue",
                 stack_trace,
                 source_location,
                 correlation_id,
-                message_tsv::text as message_tsv
+                to_tsvector('english', message)::text as message_tsv
             FROM logs WHERE true
             "#
         );
@@ -534,21 +521,20 @@ impl Repository {
         }
 
         let sql = query.build();
-        let rows = sql.fetch_all(&self.pool).await?;
-    
-        let logs = rows.iter().map(|row| LogEntry {
-            id: row.get("id"),
-            level: LogLevel::from(row.get::<String, _>("level")),
-            message: row.get("message"),
-            component: row.get("component"),
-            server_id: row.get("server_id"),
-            timestamp: row.get("timestamp"),
-            metadata: LogMetadata::from(row.get::<JsonValue, _>("metadata")),
-            stack_trace: row.get("stack_trace"),
-            source_location: row.get("source_location"),
-            correlation_id: row.get("correlation_id"),
-            message_tsv: row.get("message_tsv"),
-        }).collect();
+        let logs = sql.fetch_all(&self.pool).await?.into_iter()
+            .map(|row| LogEntry {
+                id: row.get("id"),
+                level: row.get("level"),  // 자동 변환됨
+                message: row.get("message"),
+                component: row.get("component"),
+                server_id: row.get("server_id"),
+                timestamp: row.get("timestamp"),
+                metadata: LogMetadata::from(row.get::<JsonValue, _>("metadata")),
+                stack_trace: row.get("stack_trace"),
+                source_location: row.get("source_location"),
+                correlation_id: row.get("correlation_id"),
+                message_tsv: row.get("message_tsv"),
+            }).collect();
     
         Ok(logs)
     }

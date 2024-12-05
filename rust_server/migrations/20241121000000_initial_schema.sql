@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS servers (
     name VARCHAR(255) NOT NULL,
     hostname VARCHAR(255) NOT NULL UNIQUE,
     ip_address VARCHAR(45) NOT NULL,
+    port INTEGER NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    encrypted_password TEXT NOT NULL,
     location VARCHAR(255) NOT NULL,
     description TEXT,
     server_type server_type NOT NULL,
@@ -43,6 +46,9 @@ CREATE TABLE IF NOT EXISTS servers (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add server connection index
+CREATE INDEX idx_servers_hostname_port ON servers(hostname, port);
 
 -- Metrics snapshots (수정됨)
 CREATE TABLE IF NOT EXISTS metrics_snapshots (

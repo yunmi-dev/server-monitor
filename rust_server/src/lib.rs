@@ -8,6 +8,7 @@ pub mod models;
 pub mod error;
 pub mod monitoring;
 pub mod websocket;
+pub mod utils;
 
 pub use error::AppError;
 

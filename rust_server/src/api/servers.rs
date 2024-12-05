@@ -1,5 +1,5 @@
 // src/api/servers.rs
-use actix_web::{web, HttpResponse, Result};
+use actix_web::{web, HttpResponse, Result, Error};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use ssh2::Session;
@@ -10,6 +10,8 @@ use std::sync::Arc;
 use serde_json::json;
 use crate::db::{models::{Server, ServerType}, repository::Repository};
 use crate::models::logs::LogEntry;
+use crate::config::ServerConfig;
+use crate::utils::encryption::Encryptor;
 
 #[derive(serde::Deserialize, Debug)]
 pub struct CreateServerRequest {
@@ -102,7 +104,35 @@ pub struct ResourceHistory {
 pub async fn create_server(
     repo: web::Data<Arc<Repository>>,
     server_info: web::Json<CreateServerRequest>,
-) -> Result<HttpResponse> {
+    config: web::Data<ServerConfig>,
+) -> Result<HttpResponse, Error> {
+    // Encryptor 인스턴스 생성
+    let encryptor = Encryptor::new(&config.encryption.key, &config.encryption.nonce)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    // 비밀번호 암호화
+    let encrypted_password = encryptor.encrypt(&server_info.password)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    let server = Server {
+        id: Uuid::new_v4().to_string(),
+        name: server_info.name.clone(),
+        hostname: server_info.host.clone(),
+        ip_address: server_info.host.clone(),
+        port: server_info.port,
+        username: server_info.username.clone(),
+        encrypted_password,  // 암호화된 비밀번호 저장
+        location: "Unknown".to_string(),
+        description: None,
+        server_type: server_info.server_type.clone(),
+        is_online: false,
+        last_seen_at: None,
+        metadata: Some(serde_json::json!({})),
+        created_by: None,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+
     // hostname 중복 체크
     if let Ok(Some(_)) = repo.get_server_by_hostname(&server_info.host).await {
         return Ok(HttpResponse::Conflict().json(json!({
@@ -111,22 +141,6 @@ pub async fn create_server(
     }
 
     tracing::debug!("Creating server with info: {:?}", server_info);
-
-    let server = Server {
-        id: Uuid::new_v4().to_string(),
-        name: server_info.name.clone(),
-        hostname: server_info.host.clone(),
-        ip_address: server_info.host.clone(), // 실제 운영에서는 DNS 조회 필요
-        location: "Unknown".to_string(),
-        description: None,                    // optional
-        server_type: server_info.server_type.clone(),
-        is_online: false,                    // default false
-        last_seen_at: None,                  // optional
-        metadata: Some(serde_json::json!({})),  // default '{}'::jsonb
-        created_by: None,                    // optional
-        created_at: Utc::now(),              // default CURRENT_TIMESTAMP
-        updated_at: Utc::now(),              // default CURRENT_TIMESTAMP
-    };
 
     match repo.create_server(server).await {
         Ok(created_server) => {

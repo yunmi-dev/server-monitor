@@ -106,8 +106,7 @@ class ApiService {
           'port': port,
           'username': username.trim(),
           'password': password,
-          'server_type':
-              type.toUpperCase(), // 'PHYSICAL', 'VIRTUAL', 'CLOUD' 형식으로 변환
+          'server_type': type, // 이미 'Physical', 'Virtual', 'Container' 형식으로 전달됨
         },
       );
 

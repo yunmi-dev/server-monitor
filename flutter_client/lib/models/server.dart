@@ -4,6 +4,13 @@ import 'process.dart';
 import 'resource_usage.dart';
 import 'log_entry.dart';
 
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
+  }
+}
+
 class Server {
   final String id;
   final String name;
@@ -83,7 +90,7 @@ class Server {
       'hostname': hostname,
       'port': port,
       'username': username,
-      'server_type': serverType.toString().split('.').last.toUpperCase(),
+      'server_type': serverType.toJson(),
     };
   }
 
@@ -119,13 +126,18 @@ class Server {
 enum ServerType {
   physical,
   virtual,
-  cloud;
+  container;
 
   static ServerType fromString(String type) {
     return ServerType.values.firstWhere(
       (e) => e.toString().split('.').last.toLowerCase() == type.toLowerCase(),
       orElse: () => ServerType.physical,
     );
+  }
+
+  String toJson() {
+    final enumString = toString().split('.').last;
+    return '${enumString[0].toUpperCase()}${enumString.substring(1).toLowerCase()}';
   }
 }
 

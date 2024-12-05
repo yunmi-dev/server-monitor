@@ -99,6 +99,9 @@ pub struct Server {
     pub name: String,
     pub hostname: String,
     pub ip_address: String,
+    pub port: i32,
+    pub username: String,
+    pub encrypted_password: String,
     pub location: String,
     pub description: Option<String>,
     #[sqlx(rename = "server_type")]

@@ -18,8 +18,10 @@ pub struct TokenPair {
     pub refresh_token: String,
 }
 
-const ACCESS_TOKEN_DURATION: i64 = 15 * 60;        // 15 minutes in seconds
-const REFRESH_TOKEN_DURATION: i64 = 7 * 24 * 3600; // 7 days in seconds
+#[allow(dead_code)]
+const ACCESS_TOKEN_DURATION: i64 = 15 * 60; // 15 minutes in seconds
+#[allow(dead_code)]
+const REFRESH_TOKEN_DURATION: i64 = 7 * 24 * 3600;
 
 impl Claims {
     pub fn new(user_id: &str, token_type: &str, duration: i64) -> Self {
@@ -76,6 +78,7 @@ pub fn verify_token(token: &str) -> Result<Claims, AppError> {
         })
 }
 
+#[allow(dead_code)]
 pub fn verify_refresh_token(token: &str) -> Result<Claims, AppError> {
     let claims = verify_token(token)?;
     
@@ -86,6 +89,7 @@ pub fn verify_refresh_token(token: &str) -> Result<Claims, AppError> {
     Ok(claims)
 }
 
+#[allow(dead_code)]
 pub fn refresh_access_token(refresh_token: &str) -> Result<String, AppError> {
     let claims = verify_refresh_token(refresh_token)?;
     let secret = get_secret()?;

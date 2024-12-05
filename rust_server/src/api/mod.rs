@@ -1,10 +1,10 @@
 // src/api/mod.rs
-mod alerts;
+pub mod alerts;
 pub mod handlers;
 pub mod health;
-mod response;
-mod routes;
-mod servers;
-mod logs;
+pub mod response;
+pub mod routes;
+pub mod servers;
+pub mod logs;
 
 pub use routes::configure_routes;

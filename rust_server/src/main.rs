@@ -1,42 +1,39 @@
 // src/main.rs
-use actix_web::{web, App, HttpServer, middleware};
+use actix_web::{web, App, HttpServer};
+use actix_web::middleware::Logger;
 use actix_cors::Cors;
 use dotenv::dotenv;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::sync::Arc;
 
 use rust_server::{
-   api,
-   //auth::AuthenticationMiddleware,
-   db::{self, repository::Repository, DbPool},
-   monitoring::MonitoringService,
-   websocket,
-   error::AppError,
+    api,
+    auth::middleware::AuthMiddleware, 
+    db::{self, repository::Repository, DbPool},
+    monitoring::MonitoringService,
+    error::AppError,
+    config::ServerConfig,
 };
-
-mod auth;
-mod models;
-mod monitoring;
-mod error;
-mod config;
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
     dotenv().ok();
     setup_logging();
     
+    let config = ServerConfig::with_defaults();
+    let app_config = web::Data::new(config);
+
     let db_pool = setup_database().await.map_err(|e| {
         std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
     })?;
     
-    // Arc로 Repository 생성
     let repository = Arc::new(Repository::new(db_pool));
-    
-    // 두 서비스 모두 Arc<Repository>를 사용하도록 설정
     let app_repository = web::Data::new(repository.clone());
     let monitoring_service = web::Data::new(MonitoringService::new(repository));
 
-    // Server address setup
+    // HTTP client for social login
+    let http_client = web::Data::new(reqwest::Client::new());
+
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = std::env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string())
@@ -46,10 +43,13 @@ async fn main() -> Result<(), std::io::Error> {
 
     HttpServer::new(move || {
         App::new()
-            .wrap(middleware::Logger::default())
+            .wrap(Logger::default())
             .wrap(setup_cors())
-            .app_data(app_repository.clone())            // app_data로 전달
-            .app_data(monitoring_service.clone())        // app_data로 전달
+            .wrap(AuthMiddleware)
+            .app_data(app_config.clone())
+            .app_data(app_repository.clone())
+            .app_data(monitoring_service.clone())
+            .app_data(http_client.clone())
             .configure(api::configure_routes)
     })
     .bind(&server_address)?

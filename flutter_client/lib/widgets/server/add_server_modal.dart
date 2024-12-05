@@ -279,11 +279,15 @@ class _AddServerModalState extends State<AddServerModal> {
                   ),
                   style: const TextStyle(color: Colors.white),
                   items: const [
-                    DropdownMenuItem(value: 'Linux', child: Text('Linux')),
-                    DropdownMenuItem(value: 'Windows', child: Text('Windows')),
+                    DropdownMenuItem(
+                        value: 'Physical', child: Text('Physical Server')),
+                    DropdownMenuItem(
+                        value: 'Virtual', child: Text('Virtual Machine')),
+                    DropdownMenuItem(
+                        value: 'Container', child: Text('Container')),
                   ],
                   onChanged: (value) {
-                    setState(() => _selectedType = value ?? 'Linux');
+                    setState(() => _selectedType = value ?? 'Physical');
                   },
                 ),
               ),
