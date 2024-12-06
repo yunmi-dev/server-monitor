@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 @immutable
 class TokenService {
@@ -21,6 +22,11 @@ class TokenService {
     } catch (e) {
       return false;
     }
+  }
+
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
   }
 
   Map<String, dynamic>? getTokenPayload(String token) {

@@ -6,17 +6,31 @@ part 'server_metrics.g.dart';
 
 @freezed
 class ServerMetrics with _$ServerMetrics {
-  const factory ServerMetrics({
+  factory ServerMetrics({
     required String serverId,
-    required String serverName,
+    @Default('Unknown') String serverName,
     required double cpuUsage,
     required double memoryUsage,
     required double diskUsage,
     required double networkUsage,
-    required int processCount,
+    @Default(0) int processCount,
     required DateTime timestamp,
+    @Default([]) List<ProcessInfo> processes,
   }) = _ServerMetrics;
 
   factory ServerMetrics.fromJson(Map<String, dynamic> json) =>
       _$ServerMetricsFromJson(json);
+}
+
+@freezed
+class ProcessInfo with _$ProcessInfo {
+  factory ProcessInfo({
+    @JsonKey(defaultValue: 0) required int pid,
+    @JsonKey(defaultValue: 'unknown') required String name,
+    @JsonKey(defaultValue: 0.0) required double cpuUsage,
+    @JsonKey(defaultValue: 0.0) required double memoryUsage,
+  }) = _ProcessInfo;
+
+  factory ProcessInfo.fromJson(Map<String, dynamic> json) =>
+      _$ProcessInfoFromJson(json);
 }

@@ -89,3 +89,5 @@ class ApiException implements Exception {
     );
   }
 }
+
+// TODO: ApiException 인증이 필요

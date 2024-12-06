@@ -4,7 +4,8 @@ use chrono::Utc;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use reqwest::Client;
 use uuid::Uuid;
-
+use serde::Deserialize;
+use crate::auth::utils::verify_password;
 use crate::auth::types::{AuthResponse, RegisterRequest, SocialLoginRequest, UserResponse};
 use crate::auth::jwt::Claims;
 use crate::auth::utils::hash_password;
@@ -12,6 +13,7 @@ use crate::config::ServerConfig;
 use crate::db::models::{User, UserRole, AuthProvider};
 use crate::db::repository::Repository;
 use crate::error::AppError;
+
 
 #[post("/auth/social-login")]
 pub async fn social_login(
@@ -26,6 +28,32 @@ pub async fn social_login(
         "apple" => handle_apple_login(&req.access_token, repo, http_client, config).await,
         _ => Err(AppError::BadRequest("Unsupported provider".into())),
     }
+}
+
+#[post("/auth/login")]
+pub async fn login(
+    req: web::Json<LoginRequest>,
+    repo: web::Data<Repository>,
+    config: web::Data<ServerConfig>,
+) -> Result<HttpResponse, AppError> {
+    let user = match repo.get_user_by_email(&req.email).await? {
+        Some(user) => user,
+        None => return Err(AppError::AuthError("Invalid credentials".into())),
+    };
+
+    // password_hash를 참조로 사용하도록 수정
+    if !verify_password(&req.password, user.password_hash.as_ref().unwrap_or(&String::new()))? {
+        return Err(AppError::AuthError("Invalid credentials".into()));
+    }
+
+    let tokens = generate_tokens(&user, &config)?;
+    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
+}
+
+#[derive(Deserialize)]
+pub struct LoginRequest {
+    pub email: String,
+    pub password: String,
 }
 
 #[post("/auth/register")]
@@ -189,6 +217,7 @@ async fn handle_user_creation(
     }
 }
 
+
 fn generate_tokens(user: &User, config: &ServerConfig) -> Result<(String, String), AppError> {
     let now = Utc::now().timestamp();
 
@@ -204,7 +233,7 @@ fn generate_tokens(user: &User, config: &ServerConfig) -> Result<(String, String
         &access_claims,
         &EncodingKey::from_secret(config.auth.jwt_secret.as_bytes()),
     )
-    .map_err(|e| AppError::Internal(format!("Access token generation failed: {}", e)))?;
+    .map_err(|e| AppError::InternalError(format!("Access token generation failed: {}", e)))?;
 
     let refresh_claims = Claims {
         sub: user.id.clone(),
@@ -218,7 +247,7 @@ fn generate_tokens(user: &User, config: &ServerConfig) -> Result<(String, String
         &refresh_claims,
         &EncodingKey::from_secret(config.auth.jwt_secret.as_bytes()),
     )
-    .map_err(|e| AppError::Internal(format!("Refresh token generation failed: {}", e)))?;
+    .map_err(|e| AppError::InternalError(format!("Refresh token generation failed: {}", e)))?;
 
     Ok((access_token, refresh_token))
 }

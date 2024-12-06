@@ -16,6 +16,8 @@ idna = "0.3"
 aes-gcm = "0.10.3"
 base64 = "0.21.5"
 rand = "0.8.5"
+argon2 = "0.5"
+rand_core = { version = "0.6", features = ["std"] }
 
 # 웹 프레임워크 & 서버
 actix-web = "4.4"

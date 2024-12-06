@@ -19,10 +19,17 @@ use rust_server::{
 async fn main() -> Result<(), std::io::Error> {
     dotenv().ok();
     setup_logging();
-    
-    let config = ServerConfig::with_defaults();
-    let app_config = web::Data::new(config);
 
+
+    // src/main.rs나 적절한 시작 지점에서
+    println!("JWT_SECRET: {}", std::env::var("JWT_SECRET").unwrap_or_default());
+    println!("ENCRYPTION_KEY: {}", std::env::var("ENCRYPTION_KEY").unwrap_or_default());
+    println!("ENCRYPTION_NONCE: {}", std::env::var("ENCRYPTION_NONCE").unwrap_or_default());
+
+
+    
+    let config = web::Data::new(ServerConfig::with_defaults());  // web::Data로 직접 감싸기
+    
     let db_pool = setup_database().await.map_err(|e| {
         std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
     })?;
@@ -46,7 +53,7 @@ async fn main() -> Result<(), std::io::Error> {
             .wrap(Logger::default())
             .wrap(setup_cors())
             .wrap(AuthMiddleware)
-            .app_data(app_config.clone())
+            .app_data(config.clone())        // config 직접 사용
             .app_data(app_repository.clone())
             .app_data(monitoring_service.clone())
             .app_data(http_client.clone())
@@ -56,13 +63,25 @@ async fn main() -> Result<(), std::io::Error> {
     .run()
     .await
 }
+// http 2 는 헤더 사용 금지임 - 나 http 몇이야?
 
 fn setup_cors() -> Cors {
-   Cors::default()
-       .allow_any_origin()
-       .allow_any_method()
-       .allow_any_header()
-       .max_age(3600)
+    Cors::default()
+        .allow_any_origin()  // 개발 중에는 모든 오리진 허용
+        .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+        .allow_any_header()  // 모든 헤더 허용
+        .supports_credentials()
+        .allow_any_method()
+        // WebSocket 관련 헤더 명시적 허용
+        .allowed_headers(vec![
+            "sec-websocket-key",
+            "sec-websocket-protocol",
+            "sec-websocket-version",
+            "upgrade",
+            "connection"
+        ])
+        .expose_headers(vec!["sec-websocket-accept"])
+        .max_age(3600)
 }
 
 async fn setup_database() -> Result<DbPool, AppError> {

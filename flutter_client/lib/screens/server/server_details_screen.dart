@@ -22,6 +22,43 @@ class ServerDetailsScreen extends StatefulWidget {
 }
 
 class _ServerDetailsScreenState extends State<ServerDetailsScreen> {
+  Widget _buildServerInfo() {
+    return Card(
+      color: const Color(0xFF1E1E1E),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            ListTile(
+              title: const Text('서버 정보', style: TextStyle(color: Colors.white)),
+              subtitle: Text(
+                  '${widget.server.type.displayName} / ${widget.server.category.displayName}',
+                  style: const TextStyle(color: Colors.white70)),
+            ),
+            const Divider(color: Colors.white24),
+            ListTile(
+              leading: const Icon(Icons.timer, color: Colors.white70),
+              title: const Text('가동 시간', style: TextStyle(color: Colors.white)),
+              subtitle: Text(widget.server.uptime,
+                  style: const TextStyle(color: Colors.white70)),
+            ),
+            if (widget.server.host != null) ...[
+              const Divider(color: Colors.white24),
+              ListTile(
+                leading: const Icon(Icons.dns, color: Colors.white70),
+                title: const Text('호스트', style: TextStyle(color: Colors.white)),
+                subtitle: Text(
+                  '${widget.server.host}:${widget.server.port}',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   final ValueNotifier<TimeRange> _timeRange = ValueNotifier(TimeRange.hour);
   bool _isRefreshing = false;
 
@@ -123,43 +160,6 @@ class _ServerDetailsScreenState extends State<ServerDetailsScreen> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildServerInfo() {
-    return Card(
-      color: const Color(0xFF1E1E1E),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.computer, color: Colors.white70),
-              title: const Text('서버 정보', style: TextStyle(color: Colors.white)),
-              subtitle: Text(widget.server.type ?? '알 수 없음',
-                  style: const TextStyle(color: Colors.white70)),
-            ),
-            const Divider(color: Colors.white24),
-            ListTile(
-              leading: const Icon(Icons.timer, color: Colors.white70),
-              title: const Text('가동 시간', style: TextStyle(color: Colors.white)),
-              subtitle: Text(widget.server.uptime,
-                  style: const TextStyle(color: Colors.white70)),
-            ),
-            if (widget.server.host != null) ...[
-              const Divider(color: Colors.white24),
-              ListTile(
-                leading: const Icon(Icons.dns, color: Colors.white70),
-                title: const Text('호스트', style: TextStyle(color: Colors.white)),
-                subtitle: Text(
-                  '${widget.server.host}:${widget.server.port}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ),
-            ],
-          ],
         ),
       ),
     );

@@ -1,15 +1,128 @@
 // lib/config/constants.dart
-
 import 'package:flutter/material.dart';
+
+enum ServerType {
+  linux,
+  windows,
+  macos;
+
+  String get displayName {
+    switch (this) {
+      case ServerType.linux:
+        return 'Linux';
+      case ServerType.windows:
+        return 'Windows';
+      case ServerType.macos:
+        return 'MacOS';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case ServerType.linux:
+        return Icons.android;
+      case ServerType.windows:
+        return Icons.window;
+      case ServerType.macos:
+        return Icons.apple;
+    }
+  }
+
+  String toJson() => name.toLowerCase();
+
+  static ServerType fromJson(String json) {
+    return ServerType.values.firstWhere(
+      (type) => type.name.toLowerCase() == json.toLowerCase(),
+      orElse: () => ServerType.linux,
+    );
+  }
+}
+
+enum ServerCategory {
+  physical,
+  virtual,
+  container;
+
+  String get displayName {
+    switch (this) {
+      case ServerCategory.physical:
+        return '물리 서버';
+      case ServerCategory.virtual:
+        return '가상 머신';
+      case ServerCategory.container:
+        return '컨테이너';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case ServerCategory.physical:
+        return Icons.developer_board;
+      case ServerCategory.virtual:
+        return Icons.cloud;
+      case ServerCategory.container:
+        return Icons.cases;
+    }
+  }
+
+  String toJson() => name.toLowerCase();
+
+  static ServerCategory fromJson(String json) {
+    return ServerCategory.values.firstWhere(
+      (category) => category.name.toLowerCase() == json.toLowerCase(),
+      orElse: () => ServerCategory.physical,
+    );
+  }
+}
 
 class AppConstants {
   const AppConstants._();
 
-  // API Endpoints
-  // static const String baseUrl = 'http://localhost:8080/api/v1';
-  // static const String wsUrl = 'ws://localhost:8080/api/v1/ws';
+  // Server Related Constants
+  static const defaultServerType = ServerType.linux;
+  static const defaultServerCategory = ServerCategory.physical;
+
+  // OS Type Dropdown Items
+
+  static List<DropdownMenuItem<ServerType>> get serverTypeItems {
+    return ServerType.values.map((type) {
+      return DropdownMenuItem(
+        value: type,
+        child: Row(
+          children: [
+            Icon(type.icon, size: 20),
+            const SizedBox(width: 8),
+            Text(type.displayName),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  static List<DropdownMenuItem<ServerCategory>> get serverCategoryItems {
+    return ServerCategory.values.map((category) {
+      return DropdownMenuItem(
+        value: category,
+        child: Row(
+          children: [
+            Icon(category.icon, size: 20),
+            const SizedBox(width: 8),
+            Text(category.displayName),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  // Base URLs
   static const String baseUrl = 'http://127.0.0.1:8080/api/v1';
-  static const String wsUrl = 'ws://127.0.0.1:8080/api/v1/ws';
+  static const String wsUrl =
+      'ws://127.0.0.1:8080/api/v1/ws'; // WebSocket URL에 전체 경로 포함함
+
+  // WebSocket Config
+  static const int wsReconnectAttempts = 5;
+  static const Duration wsReconnectDelay = Duration(seconds: 1);
+  static const Duration wsMaxReconnectDelay = Duration(seconds: 30);
 
   // Authentication
   static const String tokenKey = 'auth_token';

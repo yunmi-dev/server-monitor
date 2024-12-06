@@ -69,7 +69,8 @@ pub struct AlertThresholds {
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: "your-secret-key".to_string(), // 실제 배포시 환경변수에서 가져와야 함
+            jwt_secret: std::env::var("JWT_SECRET")
+                .unwrap_or_else(|_| panic!("JWT_SECRET must be set")),
             access_token_expire: 900,     // 15분
             refresh_token_expire: 604800, // 7일
             token_expiration_hours: 24,   // 24시간

@@ -11,20 +11,171 @@ import 'package:flutter/material.dart';
 import 'package:flutter_client/models/api_response.dart';
 import 'dart:async';
 import 'package:flutter_client/services/websocket_service.dart';
+import 'package:flutter_client/config/constants.dart';
+import 'package:flutter_client/models/server_metrics.dart';
+// import 'package:flutter_client/widgets/server/server_metrics_widget.dart';
 
 class ServerProvider with ChangeNotifier {
   final ApiService _apiService;
-  final WebSocketService _webSocketService; // 추가
+  final WebSocketService _webSocketService;
 
   List<Server> _servers = [];
+  Map<String, ServerMetrics> _serverMetrics = {};
   bool _isLoading = false;
   String? _error;
 
+  // 서버 상태 모니터링을 위한 타이머 관리
+  final Map<String, Timer> _monitoringTimers = {};
+
+  // 서버 상태 스트림 컨트롤러
+  final _serverStatusController =
+      StreamController<Map<String, ServerStatus>>.broadcast();
+
+  Stream<Map<String, ServerStatus>> get serverStatusStream =>
+      _serverStatusController.stream;
+
   ServerProvider({
     required ApiService apiService,
-    required WebSocketService webSocketService, // 생성자 매개변수 추가
+    required WebSocketService webSocketService,
   })  : _apiService = apiService,
-        _webSocketService = webSocketService;
+        _webSocketService = webSocketService {
+    // WebSocket 이벤트 구독
+    _webSocketService.metricsStream.listen(_handleMetricsUpdate);
+  }
+
+  // 메트릭스 업데이트 처리
+  void _handleMetricsUpdate(ServerMetrics metrics) {
+    _serverMetrics[metrics.serverId] = metrics;
+    _updateServerStatus(metrics.serverId);
+    notifyListeners();
+  }
+
+  // 서버 상태 업데이트
+  void _updateServerStatus(String serverId) {
+    final metrics = _serverMetrics[serverId];
+    if (metrics == null) return;
+
+    final serverIndex = _servers.indexWhere((s) => s.id == serverId);
+    if (serverIndex == -1) return;
+
+    final server = _servers[serverIndex];
+    ServerStatus newStatus;
+
+    // CPU, 메모리, 디스크 사용량에 따른 상태 결정
+    if (metrics.cpuUsage >= AppConstants.criticalThreshold ||
+        metrics.memoryUsage >= AppConstants.criticalThreshold ||
+        metrics.diskUsage >= AppConstants.criticalThreshold) {
+      newStatus = ServerStatus.critical;
+    } else if (metrics.cpuUsage >= AppConstants.warningThreshold ||
+        metrics.memoryUsage >= AppConstants.warningThreshold ||
+        metrics.diskUsage >= AppConstants.warningThreshold) {
+      newStatus = ServerStatus.warning;
+    } else {
+      newStatus = ServerStatus.online;
+    }
+
+    if (server.status != newStatus) {
+      _servers[serverIndex] = server.copyWith(status: newStatus);
+      _serverStatusController.add({serverId: newStatus});
+      notifyListeners();
+    }
+  }
+
+  // 서버 필터링 기능
+  List<Server> filterServers({
+    String? searchQuery,
+    ServerStatus? status,
+    ServerType? type,
+    ServerCategory? category,
+    bool? hasWarnings,
+  }) {
+    return _servers.where((server) {
+      if (searchQuery?.isNotEmpty ?? false) {
+        final query = searchQuery!.toLowerCase();
+        if (!server.name.toLowerCase().contains(query) &&
+            !server.hostname!.toLowerCase().contains(query)) {
+          return false;
+        }
+      }
+
+      if (status != null && server.status != status) return false;
+      if (type != null && server.type != type) return false;
+      if (category != null && server.category != category) return false;
+      if (hasWarnings != null && server.hasWarnings != hasWarnings)
+        return false;
+
+      return true;
+    }).toList();
+  }
+
+  // 서버 모니터링 시작
+  void startMonitoring(String serverId) {
+    _monitoringTimers[serverId]?.cancel();
+    _monitoringTimers[serverId] = Timer.periodic(
+      AppConstants.defaultRefreshInterval,
+      (_) => refreshServerStatus(serverId),
+    );
+    _webSocketService.subscribeToServerMetrics(serverId);
+  }
+
+  // 서버 모니터링 중지
+  void stopMonitoring(String serverId) {
+    _monitoringTimers[serverId]?.cancel();
+    _monitoringTimers.remove(serverId);
+    _webSocketService.unsubscribeFromServerMetrics(serverId);
+  }
+
+  // 서버 추가 기능 개선
+  Future<void> addServer({
+    required String name,
+    required String host,
+    required int port,
+    required String username,
+    required String password,
+    required ServerType type, // 변경
+    required ServerCategory category, // 추가
+  }) async {
+    _setLoading(true);
+    try {
+      await testConnection(
+        host: host,
+        port: port,
+        username: username,
+        password: password,
+      );
+
+      final server = await _apiService.addServer(
+        name: name,
+        host: host,
+        port: port,
+        username: username,
+        password: password,
+        type: type,
+        category: category,
+      );
+
+      _servers.add(server);
+      startMonitoring(server.id);
+      notifyListeners();
+    } catch (e, stack) {
+      debugPrint('서버 추가 실패: $e');
+      debugPrint('스택 트레이스: $stack');
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // 종료 처리
+  @override
+  void dispose() {
+    for (final timer in _monitoringTimers.values) {
+      timer.cancel();
+    }
+    _monitoringTimers.clear();
+    _serverStatusController.close();
+    super.dispose();
+  }
 
   // 대신 필요한 시점에 명시적으로 호출
   Future<void> initializeData() async {
@@ -45,58 +196,6 @@ class ServerProvider with ChangeNotifier {
     } finally {
       _setLoading(false);
     }
-  }
-
-  Future<void> addServer({
-    required String name,
-    required String host,
-    required int port,
-    required String username,
-    required String password,
-    required String type,
-  }) async {
-    _setLoading(true);
-
-    try {
-      await testConnection(
-        host: host,
-        port: port,
-        username: username,
-        password: password,
-      );
-
-      final server = await _apiService.addServer(
-        name: name,
-        host: host,
-        port: port,
-        username: username,
-        password: password,
-        type: type, // 'Physical', 'Virtual', 'Container' 중 하나
-      );
-
-      _servers.add(server);
-      _webSocketService.subscribeToServerMetrics(server.id);
-      _startServerMonitoring(server.id);
-
-      notifyListeners();
-    } catch (e, stack) {
-      debugPrint('서버 추가 실패: $e');
-      debugPrint('스택 트레이스: $stack');
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  void _startServerMonitoring(String serverId) {
-    // 서버 상태 주기적 체크
-    Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (_servers.any((s) => s.id == serverId)) {
-        refreshServerStatus(serverId);
-      } else {
-        timer.cancel();
-      }
-    });
   }
 
   Future<void> loadServers() async {

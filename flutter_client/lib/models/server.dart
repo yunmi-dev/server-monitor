@@ -1,15 +1,9 @@
 // lib/models/server.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_client/config/constants.dart';
 import 'process.dart';
 import 'resource_usage.dart';
 import 'log_entry.dart';
-
-extension StringExtension on String {
-  String capitalize() {
-    if (isEmpty) return this;
-    return '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
-  }
-}
 
 class Server {
   final String id;
@@ -19,10 +13,11 @@ class Server {
   final String uptime;
   final List<Process> processes;
   final List<LogEntry> recentLogs;
-  final String? hostname; // host 대신 hostname 사용 (백엔드와 일치)
+  final String? hostname;
   final int? port;
   final String? username;
-  final ServerType serverType; // serverType 사용
+  final ServerType type; // OS type (linux, windows, mac os)
+  final ServerCategory category;
 
   const Server({
     required this.id,
@@ -35,10 +30,10 @@ class Server {
     this.hostname,
     this.port,
     this.username,
-    this.serverType = ServerType.physical, // 기본값 설정
+    this.type = ServerType.linux,
+    this.category = ServerCategory.physical,
   });
 
-  // 필요한 getter들 추가
   bool get isOnline => status == ServerStatus.online;
 
   bool get hasWarnings =>
@@ -46,11 +41,7 @@ class Server {
       status == ServerStatus.critical ||
       resources.hasWarning;
 
-  // host getter 추가 (hostname의 별칭)
   String? get host => hostname;
-
-  // type getter 추가 (serverType을 String으로 변환)
-  String get type => serverType.toString().split('.').last;
 
   factory Server.fromJson(Map<String, dynamic> json) {
     return Server(
@@ -72,9 +63,12 @@ class Server {
       hostname: json['hostname'] ?? json['host'],
       port: json['port'],
       username: json['username'],
-      serverType: json['server_type'] != null
-          ? ServerType.fromString(json['server_type'])
-          : ServerType.physical,
+      type: json['type'] != null
+          ? ServerType.fromJson(json['type'])
+          : ServerType.linux,
+      category: json['category'] != null
+          ? ServerCategory.fromJson(json['category'])
+          : ServerCategory.physical,
     );
   }
 
@@ -90,7 +84,8 @@ class Server {
       'hostname': hostname,
       'port': port,
       'username': username,
-      'server_type': serverType.toJson(),
+      'type': type.toJson(),
+      'category': category.toJson(),
     };
   }
 
@@ -105,7 +100,10 @@ class Server {
     String? hostname,
     int? port,
     String? username,
+    ServerType? osType,
     ServerType? serverType,
+    ServerType? type,
+    ServerCategory? category,
   }) {
     return Server(
       id: id ?? this.id,
@@ -118,26 +116,9 @@ class Server {
       hostname: hostname ?? this.hostname,
       port: port ?? this.port,
       username: username ?? this.username,
-      serverType: serverType ?? this.serverType,
+      type: type ?? this.type,
+      category: category ?? this.category,
     );
-  }
-}
-
-enum ServerType {
-  physical,
-  virtual,
-  container;
-
-  static ServerType fromString(String type) {
-    return ServerType.values.firstWhere(
-      (e) => e.toString().split('.').last.toLowerCase() == type.toLowerCase(),
-      orElse: () => ServerType.physical,
-    );
-  }
-
-  String toJson() {
-    final enumString = toString().split('.').last;
-    return '${enumString[0].toUpperCase()}${enumString.substring(1).toLowerCase()}';
   }
 }
 

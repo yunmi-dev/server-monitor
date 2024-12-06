@@ -9,16 +9,19 @@ use crate::api::servers::{
 use crate::api::logs::{create_log, get_logs, get_log, delete_logs};
 use crate::api::alerts::{list_alerts, acknowledge_alert};
 use crate::websocket::ws_index;
+use crate::auth::handlers::login;
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/api/v1")
-            .route("/health", web::get().to(health_check))
-            .service(register)
-            .service(social_login)
-            .service(
-                web::scope("/servers")
-                    .route("", web::post().to(create_server))
+    web::scope("/api/v1")
+                .route("/ws", web::get().to(ws_index))  // WebSocket 라우트를 /api/v1/ws로 이동
+                .service(login)
+                .route("/health", web::get().to(health_check))
+                .service(register)
+                .service(social_login)
+                .service(
+                    web::scope("/servers")
+                        .route("", web::post().to(create_server))
                     .route("", web::get().to(get_servers))
                     .route("/{server_id}", web::get().to(get_server))
                     .route("/{server_id}/status", web::get().to(get_server_status)) 

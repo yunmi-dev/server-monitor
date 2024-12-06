@@ -13,7 +13,6 @@ import 'package:flutter_client/services/api_service.dart';
 import 'package:flutter_client/services/storage_service.dart';
 import 'package:flutter_client/utils/logger.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:flutter_client/config/constants.dart';
 
 part 'auth_service.freezed.dart';
 part 'auth_service.g.dart';
@@ -93,32 +92,7 @@ class AuthService extends ChangeNotifier {
 
   Future<User> signInWithEmail(String email, String password) async {
     return handleAuthRequest(() async {
-      // 개발 환경에서만 더미 인증 사용
-      if (kDebugMode) {
-        if (AppConstants.dummyAccounts.containsKey(email) &&
-            AppConstants.dummyAccounts[email] == password) {
-          // 더미 유저 데이터 생성
-          final dummyUser = User(
-            id: '1',
-            email: email,
-            name: email.split('@')[0],
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-
-          // 더미 토큰 생성
-          final dummyAuthResult = AuthResult(
-            accessToken: 'dummy_access_token',
-            refreshToken: 'dummy_refresh_token',
-            user: dummyUser,
-          );
-
-          await _handleAuthResult(dummyAuthResult);
-          return dummyUser;
-        }
-      }
-
-      // 프로덕션 환경에서는 실제 API 호출
+      // Debug mode에서도 실제 서버 인증 사용
       final response = await _apiService.request(
         path: '/auth/login',
         method: 'POST',
@@ -128,9 +102,19 @@ class AuthService extends ChangeNotifier {
         },
       );
 
-      final authResult = AuthResult.fromJson(response.data);
-      await _handleAuthResult(authResult);
-      return authResult.user;
+      // JWT 토큰 응답 처리
+      if (response.statusCode == 200) {
+        final authResult = AuthResult(
+          accessToken: response.data['access_token'],
+          refreshToken: response.data['refresh_token'],
+          user: User.fromJson(response.data['user']),
+        );
+
+        await _handleAuthResult(authResult);
+        return authResult.user;
+      } else {
+        throw AuthException('Login failed: ${response.data['message']}');
+      }
     });
   }
 

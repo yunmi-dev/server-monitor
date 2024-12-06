@@ -349,7 +349,6 @@ class _CpuUsageIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Add this at the top of your file
     const kWarningColor = Color(0xFFFFA726); // Orange 400
     // or const kWarningColor = Color(0xFFFFB74D); // Orange 300
 

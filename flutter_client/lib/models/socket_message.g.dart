@@ -55,19 +55,44 @@ Map<String, dynamic> _$ResourceMetricsToJson(ResourceMetrics instance) =>
       'additionalMetrics': instance.additionalMetrics,
     };
 
-ProcessInfo _$ProcessInfoFromJson(Map<String, dynamic> json) => ProcessInfo(
-      name: json['name'] as String,
+ServerMetricsData _$ServerMetricsDataFromJson(Map<String, dynamic> json) =>
+    ServerMetricsData(
       cpuUsage: (json['cpuUsage'] as num).toDouble(),
+      diskUsage: (json['diskUsage'] as num).toDouble(),
       memoryUsage: (json['memoryUsage'] as num).toDouble(),
-      threads: (json['threads'] as num).toInt(),
-      status: json['status'] as String?,
+      networkUsage: (json['networkUsage'] as num).toDouble(),
+      processCount: (json['processCount'] as num).toInt(),
+      processes: (json['processes'] as List<dynamic>)
+          .map((e) => ServerProcess.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      serverId: json['serverId'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
     );
 
-Map<String, dynamic> _$ProcessInfoToJson(ProcessInfo instance) =>
+Map<String, dynamic> _$ServerMetricsDataToJson(ServerMetricsData instance) =>
     <String, dynamic>{
-      'name': instance.name,
+      'cpuUsage': instance.cpuUsage,
+      'diskUsage': instance.diskUsage,
+      'memoryUsage': instance.memoryUsage,
+      'networkUsage': instance.networkUsage,
+      'processCount': instance.processCount,
+      'processes': instance.processes,
+      'serverId': instance.serverId,
+      'timestamp': ServerMetricsData._dateToIso8601String(instance.timestamp),
+    };
+
+ServerProcess _$ServerProcessFromJson(Map<String, dynamic> json) =>
+    ServerProcess(
+      cpuUsage: (json['cpuUsage'] as num).toDouble(),
+      memoryUsage: (json['memoryUsage'] as num).toInt(),
+      name: json['name'] as String,
+      pid: (json['pid'] as num).toInt(),
+    );
+
+Map<String, dynamic> _$ServerProcessToJson(ServerProcess instance) =>
+    <String, dynamic>{
       'cpuUsage': instance.cpuUsage,
       'memoryUsage': instance.memoryUsage,
-      'threads': instance.threads,
-      'status': instance.status,
+      'name': instance.name,
+      'pid': instance.pid,
     };

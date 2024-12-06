@@ -46,13 +46,13 @@ pub fn create_token_pair(user_id: &str) -> Result<TokenPair, AppError> {
         &Header::default(),
         &access_claims,
         &encoding_key
-    ).map_err(|e| AppError::Internal(format!("Access token creation failed: {}", e)))?;
+    ).map_err(|e| AppError::InternalError(format!("Access token creation failed: {}", e)))?;
 
     let refresh_token = encode(
         &Header::default(),
         &refresh_claims,
         &encoding_key
-    ).map_err(|e| AppError::Internal(format!("Refresh token creation failed: {}", e)))?;
+    ).map_err(|e| AppError::InternalError(format!("Refresh token creation failed: {}", e)))?;
 
     Ok(TokenPair {
         access_token,
@@ -100,12 +100,12 @@ pub fn refresh_access_token(refresh_token: &str) -> Result<String, AppError> {
         &Header::default(),
         &new_claims,
         &EncodingKey::from_secret(secret.as_bytes())
-    ).map_err(|e| AppError::Internal(format!("Access token renewal failed: {}", e)))
+    ).map_err(|e| AppError::InternalError(format!("Access token renewal failed: {}", e)))
 }
 
 fn get_secret() -> Result<String, AppError> {
     std::env::var("JWT_SECRET")
-        .map_err(|_| AppError::Internal("JWT_SECRET not set".to_string()))
+        .map_err(|_| AppError::InternalError("JWT_SECRET not set".to_string()))
 }
 
 #[cfg(test)]

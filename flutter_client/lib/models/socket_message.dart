@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:flutter_client/models/log_entry.dart';
+import 'package:flutter_client/models/server_metrics.dart';
 
 part 'socket_message.g.dart';
 
@@ -275,29 +276,73 @@ class ResourceMetrics extends Equatable {
       ];
 }
 
-/// 프로세스 정보 데이터 모델
+// 서버에서 받는 메트릭 데이터를 위한 전용 모델
 @immutable
 @JsonSerializable()
-class ProcessInfo extends Equatable {
-  final String name;
+class ServerMetricsData extends Equatable {
   final double cpuUsage;
+  final double diskUsage;
   final double memoryUsage;
-  final int threads;
-  final String? status;
+  final double networkUsage;
+  final int processCount;
+  final List<ServerProcess> processes;
+  final String serverId;
 
-  const ProcessInfo({
-    required this.name,
+  @JsonKey(fromJson: DateTime.parse, toJson: _dateToIso8601String)
+  final DateTime timestamp;
+
+  const ServerMetricsData({
     required this.cpuUsage,
+    required this.diskUsage,
     required this.memoryUsage,
-    required this.threads,
-    this.status,
+    required this.networkUsage,
+    required this.processCount,
+    required this.processes,
+    required this.serverId,
+    required this.timestamp,
   });
 
-  factory ProcessInfo.fromJson(Map<String, dynamic> json) =>
-      _$ProcessInfoFromJson(json);
+  factory ServerMetricsData.fromJson(Map<String, dynamic> json) =>
+      _$ServerMetricsDataFromJson(json);
 
-  Map<String, dynamic> toJson() => _$ProcessInfoToJson(this);
+  Map<String, dynamic> toJson() => _$ServerMetricsDataToJson(this);
 
   @override
-  List<Object?> get props => [name, cpuUsage, memoryUsage, threads, status];
+  List<Object?> get props => [
+        cpuUsage,
+        diskUsage,
+        memoryUsage,
+        networkUsage,
+        processCount,
+        processes,
+        serverId,
+        timestamp,
+      ];
+
+  static String _dateToIso8601String(DateTime date) => date.toIso8601String();
+}
+
+// 서버 프로세스 정보
+@immutable
+@JsonSerializable()
+class ServerProcess extends Equatable {
+  final double cpuUsage;
+  final int memoryUsage;
+  final String name;
+  final int pid;
+
+  const ServerProcess({
+    required this.cpuUsage,
+    required this.memoryUsage,
+    required this.name,
+    required this.pid,
+  });
+
+  factory ServerProcess.fromJson(Map<String, dynamic> json) =>
+      _$ServerProcessFromJson(json);
+
+  Map<String, dynamic> toJson() => _$ServerProcessToJson(this);
+
+  @override
+  List<Object?> get props => [cpuUsage, memoryUsage, name, pid];
 }

@@ -4,7 +4,10 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/models/socket_message.dart';
+import 'package:flutter_client/models/server_metrics.dart';
 import 'package:flutter_client/utils/logger.dart';
+import 'package:web_socket_channel/io.dart';
+import 'package:flutter_client/services/storage_service.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
@@ -14,6 +17,7 @@ class WebSocketService {
   bool _isConnected = false;
   bool _isConnecting = false;
   final _messageController = StreamController<SocketMessage>.broadcast();
+  final _metricsController = StreamController<ServerMetrics>.broadcast(); // 추가
   Timer? _reconnectTimer;
   Timer? _pingTimer;
   final Set<String> _subscribedServers = {};
@@ -26,6 +30,141 @@ class WebSocketService {
 
   bool get isConnected => _isConnected;
   Stream<SocketMessage> get messageStream => _messageController.stream;
+  Stream<ServerMetrics> get metricsStream => _metricsController.stream;
+
+  void _handleMessage(dynamic message) {
+    try {
+      logger.verbose('Processing incoming WebSocket message...');
+
+      Map<String, dynamic> data;
+      if (message is String) {
+        data = jsonDecode(message);
+      } else if (message is Map<String, dynamic>) {
+        data = message;
+      } else {
+        throw const FormatException('Invalid message format');
+      }
+
+      // 서버 메트릭 데이터 처리
+      if (data.containsKey('data') &&
+          data['data'] is Map<String, dynamic> &&
+          data['data'].containsKey('cpuUsage')) {
+        try {
+          final metricData = data['data'];
+          logger.verbose('Processing server metrics data: $metricData');
+
+          final metrics = ServerMetrics(
+            serverId: metricData['serverId'] as String,
+            cpuUsage: (metricData['cpuUsage'] as num).toDouble(),
+            memoryUsage: (metricData['memoryUsage'] as num).toDouble(),
+            diskUsage: (metricData['diskUsage'] as num).toDouble(),
+            networkUsage: (metricData['networkUsage'] as num).toDouble(),
+            processCount: metricData['processCount'] as int,
+            timestamp: DateTime.parse(metricData['timestamp'] as String),
+            processes: (metricData['processes'] as List<dynamic>)
+                .map((p) => ProcessInfo(
+                      pid: p['pid'] as int,
+                      name: p['name'] as String,
+                      cpuUsage: (p['cpuUsage'] as num).toDouble(),
+                      memoryUsage: (p['memoryUsage'] as num).toDouble(),
+                    ))
+                .toList(),
+          );
+
+          final socketMessage = SocketMessage(
+            type: MessageType.resourceMetrics,
+            data: data['data'],
+            timestamp: metrics.timestamp,
+          );
+
+          _messageController.add(socketMessage);
+          _metricsController.add(metrics);
+
+          logger.info(
+              'Successfully processed metrics for server: ${metrics.serverId}');
+          logger.verbose(
+              'CPU: ${metrics.cpuUsage}%, Memory: ${metrics.memoryUsage}%, Disk: ${metrics.diskUsage}%, Network: ${metrics.networkUsage}');
+        } catch (e, stack) {
+          logger.error('Failed to parse metrics data: $e');
+          logger.error('Stack trace: $stack');
+          logger.error('Raw metric data: ${data['data']}');
+        }
+      } else {
+        logger.verbose('Processing non-metrics message');
+        final socketMessage = SocketMessage.fromJson(data);
+        _messageController.add(socketMessage);
+        logger.info('Processed message of type: ${socketMessage.type}');
+      }
+    } catch (e, stack) {
+      logger.error('Failed to parse WebSocket message: $e');
+      logger.error('Stack trace: $stack');
+      logger.error('Raw message: $message');
+    }
+  }
+
+  // 에러 확인용 TODO
+  void connectToWebSocket() async {
+    if (_isConnected || _isConnecting) return;
+    _isConnecting = true;
+
+    try {
+      final storage = await StorageService.initialize();
+      final token = await storage.getToken();
+
+      if (token == null) {
+        logger.error('WebSocket connection failed: Missing auth token');
+        _handleError('No authorization token');
+        _isConnecting = false;
+        return;
+      }
+
+      // WebSocket URL 수정
+      final wsUrl = Uri.parse('${AppConstants.wsUrl}/api/v1/ws')
+          .replace(scheme: 'ws')
+          .toString();
+      logger.info('Connecting to WebSocket at: $wsUrl');
+
+      _channel = IOWebSocketChannel.connect(
+        Uri.parse(wsUrl),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Connection': 'Upgrade',
+          'Upgrade': 'websocket',
+        },
+      );
+
+      _channel!.stream.listen(
+        (message) {
+          logger.info('Received: $message');
+          _handleMessage(message);
+        },
+        onError: (error) {
+          logger.error('WebSocket error: $error');
+          _handleError(error);
+        },
+        onDone: () {
+          logger.info('WebSocket closed');
+          _handleDisconnect();
+        },
+      );
+
+      _isConnected = true;
+      _isConnecting = false;
+      _reconnectAttempts = 0;
+      logger.info('WebSocket connected successfully');
+    } catch (e) {
+      _isConnecting = false;
+      logger.error('WebSocket connection error: $e');
+      _handleError(e);
+    }
+  }
+
+  // dispose 메서드 수정
+  Future<void> dispose() async {
+    await disconnect();
+    await _messageController.close();
+    await _metricsController.close(); // 추가
+  }
 
   void subscribeToServerMetrics(String serverId) {
     if (_subscribedServers.contains(serverId)) return;
@@ -76,21 +215,12 @@ class WebSocketService {
       _isConnecting = true;
       logger.info('Attempting WebSocket connection...');
 
-      _channel = WebSocketChannel.connect(
-        Uri.parse(AppConstants.wsUrl),
-      );
+      final wsUri = Uri.parse(AppConstants.wsUrl)
+          .replace(scheme: 'ws', path: '/api/v1/ws');
 
-      // Add connection timeout
-      bool connected = false;
-      Timer(const Duration(seconds: 5), () {
-        if (!connected) {
-          logger.error('WebSocket connection timeout');
-          _handleError('Connection timeout');
-        }
-      });
+      _channel = IOWebSocketChannel.connect(wsUri);
 
       await _channel!.ready;
-      connected = true;
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
@@ -109,26 +239,6 @@ class WebSocketService {
       _isConnecting = false;
       logger.error('WebSocket connection failed: $e');
       _handleError(e);
-    }
-  }
-
-  void _handleMessage(dynamic message) {
-    try {
-      if (message is String || message is Map<String, dynamic>) {
-        final socketMessage = SocketMessage.fromJson(message);
-
-        // 리소스 메트릭은 verbose 레벨로 로깅
-        if (socketMessage.type == MessageType.resourceMetrics) {
-          logger.verbose('Received metrics message');
-        } else {
-          logger.info(
-              'Received WebSocket message: $socketMessage.type'); // 중괄호 제거
-        }
-
-        _messageController.add(socketMessage);
-      }
-    } catch (e) {
-      logger.error('Failed to parse WebSocket message: $e');
     }
   }
 
@@ -227,10 +337,5 @@ class WebSocketService {
     }
 
     _isConnected = false;
-  }
-
-  Future<void> dispose() async {
-    await disconnect();
-    await _messageController.close();
   }
 }

@@ -30,15 +30,16 @@ class _ServerListScreenState extends State<ServerListScreen> {
   void _filterServers(List<Server> servers, String query) {
     setState(() {
       _filteredServers = servers.where((server) {
-        // 검색어로 필터링
         final nameMatch =
             server.name.toLowerCase().contains(query.toLowerCase());
         final hostMatch =
             server.host?.toLowerCase().contains(query.toLowerCase()) ?? false;
         final typeMatch =
-            server.type?.toLowerCase().contains(query.toLowerCase()) ?? false;
+            server.type.displayName.toLowerCase().contains(query.toLowerCase());
+        final categoryMatch = server.category.displayName
+            .toLowerCase()
+            .contains(query.toLowerCase());
 
-        // 필터 적용
         bool matchesFilters = true;
         for (final filter in _selectedFilters) {
           switch (filter) {
@@ -55,18 +56,18 @@ class _ServerListScreenState extends State<ServerListScreen> {
               matchesFilters &= server.status == ServerStatus.critical;
               break;
             case 'High CPU':
-              matchesFilters &= server.resources.cpu > 80; // cpu로 변경
+              matchesFilters &= server.resources.cpuUsage > 80;
               break;
             case 'High Memory':
-              matchesFilters &= server.resources.memory > 80; // memory로 변경
+              matchesFilters &= server.resources.memoryUsage > 80;
               break;
             case 'High Disk':
-              matchesFilters &= server.resources.disk > 80; // disk로 변경
+              matchesFilters &= server.resources.diskUsage > 80;
               break;
           }
         }
-
-        return (nameMatch || hostMatch || typeMatch) && matchesFilters;
+        return (nameMatch || hostMatch || typeMatch || categoryMatch) &&
+            matchesFilters;
       }).toList();
     });
   }

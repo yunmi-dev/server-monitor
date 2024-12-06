@@ -6,6 +6,8 @@ import 'package:flutter_client/constants/route_paths.dart';
 import 'package:flutter_client/models/server.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/widgets/server/add_server_modal.dart';
+import 'package:flutter_client/widgets/server/server_list_item.dart';
+import 'package:flutter_client/widgets/common/empty_state_widget.dart';
 
 class ServersScreen extends StatefulWidget {
   const ServersScreen({super.key});
@@ -16,40 +18,27 @@ class ServersScreen extends StatefulWidget {
 
 class _ServersScreenState extends State<ServersScreen> {
   String _searchQuery = '';
-  String _selectedStatus = 'All';
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
+  ServerStatus? _selectedStatus;
+  ServerType? _selectedOsType;
+  ServerCategory? _selectedCategory;
+  bool? _hasWarnings;
+  String? _selectedFilter = 'All';
 
   void _showAddServerModal() {
-    // BuildContext context 캡처
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AddServerModal(
-        onAdd: (name, host, port, username, password, type) async {
+        onAdd: (name, host, port, username, password, type, category) async {
           final serverProvider =
               Provider.of<ServerProvider>(context, listen: false);
           try {
-            scaffoldMessenger.showSnackBar(
-              const SnackBar(content: Text('서버 연결 테스트 중...')),
-            );
-
             await serverProvider.testConnection(
               host: host,
               port: port,
               username: username,
               password: password,
-            );
-
-            scaffoldMessenger.showSnackBar(
-              const SnackBar(content: Text('서버 추가 중...')),
             );
 
             await serverProvider.addServer(
@@ -59,19 +48,111 @@ class _ServersScreenState extends State<ServersScreen> {
               username: username,
               password: password,
               type: type,
+              category: category,
             );
 
-            navigator.pop();
-            scaffoldMessenger.showSnackBar(
-              const SnackBar(content: Text('서버가 추가되었습니다.')),
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('서버가 추가되었습니다')),
             );
           } catch (e) {
-            scaffoldMessenger.showSnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('서버 추가 실패: $e')),
             );
           }
         },
       ),
+    );
+  }
+
+  Widget _buildFilterOptions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Wrap(
+        spacing: 8,
+        children: [
+          _buildStatusFilterChip(ServerStatus.online, '온라인'),
+          _buildStatusFilterChip(ServerStatus.offline, '오프라인'),
+          FilterChip(
+            selected: _hasWarnings == true,
+            label: const Text('경고'),
+            onSelected: (selected) =>
+                setState(() => _hasWarnings = selected ? true : null),
+          ),
+          PopupMenuButton<ServerType>(
+            child: Chip(label: Text(_selectedOsType?.displayName ?? '운영체제')),
+            itemBuilder: (_) => AppConstants.serverTypeItems
+                .map((item) =>
+                    PopupMenuItem(value: item.value, child: item.child))
+                .toList(),
+            onSelected: (type) => setState(() => _selectedOsType = type),
+          ),
+          PopupMenuButton<ServerCategory>(
+            child: Chip(label: Text(_selectedCategory?.displayName ?? '서버 유형')),
+            itemBuilder: (_) => AppConstants.serverCategoryItems
+                .map((item) =>
+                    PopupMenuItem(value: item.value, child: item.child))
+                .toList(),
+            onSelected: (category) =>
+                setState(() => _selectedCategory = category),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusFilterChip(ServerStatus status, String label) {
+    return FilterChip(
+      selected: _selectedStatus == status,
+      label: Text(label),
+      onSelected: (selected) =>
+          setState(() => _selectedStatus = selected ? status : null),
+    );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  void _navigateToServerDetails(Server server) {
+    Navigator.pushNamed(
+      context,
+      RoutePaths.serverDetails,
+      arguments: {'server': server},
+    );
+  }
+
+  Widget _buildServerList() {
+    return Consumer<ServerProvider>(
+      builder: (context, provider, _) {
+        if (provider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final filteredServers = provider.filterServers(
+          searchQuery: _searchQuery,
+          status: _selectedStatus,
+          type: _selectedOsType,
+          hasWarnings: _hasWarnings,
+        );
+
+        if (filteredServers.isEmpty) {
+          return const EmptyStateWidget(
+            icon: Icons.dns_outlined,
+            message: '서버를 찾을 수 없습니다',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: filteredServers.length,
+          itemBuilder: (context, index) => ServerListItem(
+            server: filteredServers[index],
+            onTap: () => _navigateToServerDetails(filteredServers[index]),
+          ),
+        );
+      },
     );
   }
 
@@ -165,76 +246,30 @@ class _ServersScreenState extends State<ServersScreen> {
 
   Widget _buildFilterChip(String label) {
     return FilterChip(
-      selected: _selectedStatus == label,
+      selected: _selectedFilter == label,
       label: Text(label),
       onSelected: (bool selected) {
         setState(() {
-          _selectedStatus = selected ? label : 'All';
+          _selectedFilter = selected ? label : 'All';
+
+          // 필터에 따른 ServerStatus 설정
+          switch (_selectedFilter) {
+            case 'Online':
+              _selectedStatus = ServerStatus.online;
+              break;
+            case 'Offline':
+              _selectedStatus = ServerStatus.offline;
+              break;
+            case 'Warning':
+              _selectedStatus = ServerStatus.warning;
+              break;
+            default:
+              _selectedStatus = null;
+          }
         });
       },
       backgroundColor: Colors.grey[900],
       selectedColor: Theme.of(context).colorScheme.primary,
-    );
-  }
-
-  Widget _buildServerList() {
-    return Consumer<ServerProvider>(
-      builder: (context, provider, _) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        var filteredServers = provider.servers.where((server) {
-          // Apply search filter
-          if (_searchQuery.isNotEmpty &&
-              !server.name.toLowerCase().contains(_searchQuery.toLowerCase())) {
-            return false;
-          }
-
-          // Apply status filter
-          switch (_selectedStatus) {
-            case 'Online':
-              return server.isOnline;
-            case 'Offline':
-              return !server.isOnline;
-            case 'Warning':
-              return server.hasWarnings;
-            default:
-              return true;
-          }
-        }).toList();
-
-        if (filteredServers.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.computer_outlined,
-                  size: 64,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No servers found',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: filteredServers.length,
-          itemBuilder: (context, index) {
-            return _buildServerCard(context, filteredServers[index]);
-          },
-        );
-      },
     );
   }
 

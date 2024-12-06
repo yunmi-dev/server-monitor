@@ -56,7 +56,8 @@ where
             "/api/v1/auth/login",
             "/api/v1/auth/register",
             "/api/v1/health",
-            "/ws"
+            "/api/v1/ws",
+            "/api/v1/servers/test-connection"
         ];
 
         if public_paths.iter().any(|path| req.path().starts_with(path)) {

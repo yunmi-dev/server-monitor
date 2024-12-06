@@ -9,6 +9,9 @@ import 'package:flutter_client/models/resource_usage.dart';
 import 'package:flutter_client/models/alert.dart';
 import 'package:flutter_client/models/socket_message.dart';
 import 'package:flutter_client/models/log_entry.dart';
+import 'package:flutter_client/config/constants.dart';
+import 'package:flutter_client/services/storage_service.dart';
+
 // import 'package:dio/dio.dart';
 
 class ApiService {
@@ -23,16 +26,10 @@ class ApiService {
     _dio = dio ??
         Dio(BaseOptions(
           baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
+          connectTimeout: const Duration(seconds: 30), // 타임아웃 증가
+          receiveTimeout: const Duration(seconds: 30),
           contentType: 'application/json',
-          validateStatus: (status) {
-            return status != null && status < 500;
-          },
-          headers: {
-            'Accept': 'application/json',
-            'content-type': 'application/json',
-          },
+          validateStatus: (status) => status != null && status < 500,
         ));
     _setupInterceptors();
   }
@@ -54,18 +51,22 @@ class ApiService {
   }
 
   void _setupInterceptors() {
-    if (kDebugMode) {
-      _dio.interceptors.add(LogInterceptor(
-        requestBody: true,
-        responseBody: true,
-        logPrint: (obj) {
-          debugPrint(obj.toString());
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final storage = await StorageService.initialize();
+          final token = await storage.getToken();
+          print('Stored token: $token'); // TODO: 디버깅용
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
         },
-      ));
-    }
+      ),
+    );
   }
 
-// 응답 처리 로직 수정
+  // 응답 처리 로직 수정
   Future<T> _handleRequest<T>(
     Future<Response<dynamic>> Function() request,
     T Function(dynamic data) converter,
@@ -95,9 +96,18 @@ class ApiService {
     required int port,
     required String username,
     required String password,
-    required String type,
+    required ServerType type,
+    required ServerCategory category,
   }) async {
     try {
+      // StorageService에서 저장된 토큰을 가져옵니다
+      final storage = await StorageService.initialize();
+      final token = await storage.getToken();
+
+      if (token == null) {
+        throw ApiException(message: '로그인이 필요합니다');
+      }
+
       final response = await _dio.post(
         '/servers',
         data: {
@@ -106,19 +116,25 @@ class ApiService {
           'port': port,
           'username': username.trim(),
           'password': password,
-          'server_type': type, // 이미 'Physical', 'Virtual', 'Container' 형식으로 전달됨
+          'type': type.toJson(),
+          'category': category.toJson(),
         },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
       );
 
-      debugPrint('서버 응답: ${response.data}');
+      if (response.statusCode == 401) {
+        throw ApiException(message: '인증이 필요합니다');
+      }
 
       return Server.fromJson(response.data);
-    } on DioError catch (e) {
-      debugPrint('Dio 에러: ${e.message}');
-      debugPrint('응답 데이터: ${e.response?.data}');
-      throw DioErrorHandler.handle(e);
     } catch (e) {
-      debugPrint('기타 에러: $e');
+      debugPrint('서버 추가 실패: $e');
       rethrow;
     }
   }
@@ -221,18 +237,36 @@ class ApiService {
     required String username,
     required String password,
   }) async {
-    await _handleRequest<void>(
-      () => _dio.post(
-        '/servers/test-connection', // /api/v1 제거
+    try {
+      final response = await _dio.post(
+        '/servers/test-connection',
         data: {
           'host': host,
           'port': port,
           'username': username,
           'password': password,
         },
-      ),
-      (data) => data,
-    );
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 401) {
+        throw ApiException(message: '인증 오류가 발생했습니다');
+      }
+
+      if (response.statusCode != 200) {
+        throw ApiException(
+            message: response.data?['message'] ?? '서버 연결 테스트 실패');
+      }
+    } catch (e) {
+      debugPrint('서버 연결 테스트 실패: $e');
+      rethrow;
+    }
   }
 
   /// 서버 상태에 대한 트렌드 데이터 조회

@@ -1,13 +1,11 @@
 // src/error.rs
-use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use thiserror::Error;
+use actix_web::{HttpResponse, ResponseError};
 use serde_json::json;
 
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("Internal error: {0}")]
-    InternalError(String),
-    
     #[error("Authentication error: {0}")]
     AuthError(String),
 
@@ -21,60 +19,83 @@ pub enum AppError {
     NotFound(String),
 
     #[error("Internal server error: {0}")]
-    Internal(String),
+    InternalError(String),
 
     #[error("Bad request: {0}")]
     BadRequest(String),
-    
+
     #[error("External service error: {0}")]
     ExternalService(String),
 }
 
+// anyhow::Error에 대한 From trait 구현
+impl From<anyhow::Error> for AppError {
+    fn from(err: anyhow::Error) -> Self {
+        AppError::InternalError(err.to_string())
+    }
+}
+
+// jsonwebtoken errors에 대한 From trait 구현
+impl From<jsonwebtoken::errors::Error> for AppError {
+    fn from(err: jsonwebtoken::errors::Error) -> Self {
+        AppError::AuthError(err.to_string())
+    }
+}
+
+// bcrypt errors에 대한 From trait 구현
+impl From<bcrypt::BcryptError> for AppError {
+    fn from(err: bcrypt::BcryptError) -> Self {
+        AppError::InternalError(format!("Password hashing error: {}", err))
+    }
+}
+
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
-        let (status, error_type) = match self {
-            AppError::InternalError(_) => 
-                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
-            AppError::DatabaseError(_) => 
-                (StatusCode::INTERNAL_SERVER_ERROR, "database_error"),
-            AppError::AuthError(_) => 
-                (StatusCode::UNAUTHORIZED, "authentication_error"),
-            AppError::ValidationError(_) => 
-                (StatusCode::BAD_REQUEST, "validation_error"),
-            AppError::NotFound(_) => 
-                (StatusCode::NOT_FOUND, "not_found"),
-            AppError::Internal(_) => 
-                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
-            AppError::BadRequest(_) => 
-                (StatusCode::BAD_REQUEST, "bad_request"),
-            AppError::ExternalService(_) => 
-                (StatusCode::BAD_GATEWAY, "external_service_error"),
-        };
-
-        HttpResponse::build(status).json(json!({
-            "success": false,
-            "error": error_type,
-            "message": self.to_string(),
-            "data": null
-        }))
-    }
-
-    fn status_code(&self) -> StatusCode {
         match self {
-            AppError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            AppError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            AppError::AuthError(_) => StatusCode::UNAUTHORIZED,
-            AppError::ValidationError(_) => StatusCode::BAD_REQUEST,
-            AppError::NotFound(_) => StatusCode::NOT_FOUND,
-            AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
-            AppError::ExternalService(_) => StatusCode::BAD_GATEWAY,
+            AppError::AuthError(msg) => {
+                HttpResponse::Unauthorized().json(json!({
+                    "error": "unauthorized",
+                    "message": msg
+                }))
+            }
+            AppError::DatabaseError(_) => {
+                HttpResponse::InternalServerError().json(json!({
+                    "error": "database_error",
+                    "message": self.to_string()
+                }))
+            }
+            AppError::ValidationError(msg) => {
+                HttpResponse::BadRequest().json(json!({
+                    "error": "validation_error",
+                    "message": msg
+                }))
+            }
+            AppError::NotFound(msg) => {
+                HttpResponse::NotFound().json(json!({
+                    "error": "not_found",
+                    "message": msg
+                }))
+            }
+            AppError::InternalError(msg) => {
+                HttpResponse::InternalServerError().json(json!({
+                    "error": "internal_server_error",
+                    "message": msg
+                }))
+            }
+            AppError::BadRequest(msg) => {
+                HttpResponse::BadRequest().json(json!({
+                    "error": "bad_request",
+                    "message": msg
+                }))
+            }
+            AppError::ExternalService(msg) => {
+                HttpResponse::InternalServerError().json(json!({
+                    "error": "external_service_error",
+                    "message": msg
+                }))
+            }
         }
     }
 }
 
-impl From<anyhow::Error> for AppError {
-    fn from(err: anyhow::Error) -> Self {
-        AppError::Internal(err.to_string())
-    }
-}
+pub type AuthError = AppError;
