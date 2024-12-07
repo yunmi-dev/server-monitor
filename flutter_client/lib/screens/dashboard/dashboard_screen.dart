@@ -1,5 +1,6 @@
 // lib/screens/dashboard/dashboard_screen.dart
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/constants/route_paths.dart';
@@ -171,31 +172,53 @@ class DashboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<ServerProvider>().refreshAll();
-            },
-          ),
-        ],
-      ),
-      body: Consumer<ServerProvider>(
-        builder: (context, serverProvider, _) {
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildServerCategories(context, serverProvider),
-              const SizedBox(height: 24),
-              _buildUsageSection(serverProvider),
-              const SizedBox(height: 24),
-              _buildServerList(context, serverProvider),
+      body: NestedScrollView(
+        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+          return <Widget>[
+            SliverAppBar(
+              title: const Text('Dashboard'),
+              floating: true,
+              pinned: true,
+              backgroundColor: Colors.transparent,
+              flexibleSpace: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.85),
+                  ),
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    context.read<ServerProvider>().refreshAll();
+                  },
+                ),
+              ],
+            ),
+          ];
+        },
+        body: Consumer<ServerProvider>(builder: (context, serverProvider, _) {
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildServerCategories(context, serverProvider),
+                    const SizedBox(height: 24),
+                    _buildUsageSection(serverProvider),
+                    const SizedBox(height: 24),
+                    _buildServerList(context, serverProvider),
+                    // 하단에 여백 추가하여 BottomNavigationBar 가림 방지
+                    const SizedBox(height: 80),
+                  ]),
+                ),
+              ),
             ],
           );
-        },
+        }),
       ),
     );
   }

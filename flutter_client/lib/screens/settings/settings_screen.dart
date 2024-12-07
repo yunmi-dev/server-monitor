@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:flutter_client/providers/settings_provider.dart';
 import 'package:flutter_client/providers/auth_provider.dart';
@@ -16,41 +17,51 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: const Text(
-          'Settings',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-      body: Consumer<SettingsProvider>(
-        builder: (context, settings, _) {
+      body: NestedScrollView(
+        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+          return <Widget>[
+            SliverAppBar(
+              title: const Text('Settings'),
+              floating: true,
+              pinned: true,
+              backgroundColor: Colors.transparent,
+              flexibleSpace: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.85),
+                  ),
+                ),
+              ),
+            ),
+          ];
+        },
+        body: Consumer<SettingsProvider>(builder: (context, settings, _) {
           return CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildUserSection(context),
-                      const SizedBox(height: 24),
-                      _buildGeneralSettings(context, settings),
-                      const SizedBox(height: 24),
-                      _buildNotificationSettings(context, settings),
-                      const SizedBox(height: 24),
-                      _buildAlertSettings(context, settings),
-                      const SizedBox(height: 24),
-                      _buildAdvancedSettings(context, settings),
-                      const SizedBox(height: 24),
-                      _buildDangerZone(context),
-                    ],
-                  ),
+              SliverPadding(
+                padding: const EdgeInsets.all(16.0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildUserSection(context),
+                    const SizedBox(height: 24),
+                    _buildGeneralSettings(context, settings),
+                    const SizedBox(height: 24),
+                    _buildNotificationSettings(context, settings),
+                    const SizedBox(height: 24),
+                    _buildAlertSettings(context, settings),
+                    const SizedBox(height: 24),
+                    _buildAdvancedSettings(context, settings),
+                    const SizedBox(height: 24),
+                    _buildDangerZone(context),
+                    // 하단에 여백 추가하여 BottomNavigationBar 가림 방지
+                    const SizedBox(height: 80),
+                  ]),
                 ),
               ),
             ],
           );
-        },
+        }),
       ),
     );
   }
