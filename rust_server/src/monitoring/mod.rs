@@ -8,18 +8,18 @@ use sysinfo::{System, SystemExt, CpuExt, ProcessExt};
 use crate::db::{models::MetricsSnapshot, repository::Repository};
 use chrono::Utc;
 use serde_json::json;
+use actix_web::web::Data;
 
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct MonitoringService {
-    repository: Arc<Repository>,
+    repository: Data<Repository>,  // Arc 대신 Data 사용
     system: Arc<RwLock<System>>,
     collector: Arc<RwLock<MetricsCollector>>,
 }
 
 #[allow(dead_code)]
 impl MonitoringService {
-    pub fn new(repository: Arc<Repository>) -> Self {
+    pub fn new(repository: Data<Repository>) -> Self {
         let mut system = System::new_all();
         system.refresh_all();
         
@@ -30,7 +30,6 @@ impl MonitoringService {
             collector: Arc::new(RwLock::new(collector)),
         };
 
-        // Start collecting metrics
         service.clone().start();
         service
     }

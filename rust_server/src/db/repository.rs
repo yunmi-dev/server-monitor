@@ -568,4 +568,39 @@ impl Repository {
 
         Ok(result.rows_affected() as i64)
     }
+
+
+    pub async fn invalidate_refresh_tokens(&self, user_id: &str) -> Result<()> {
+        sqlx::query!(
+            r#"
+            DELETE FROM refresh_tokens 
+            WHERE user_id = $1
+            "#,
+            user_id
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn end_user_sessions(&self, user_id: &str) -> Result<()> {
+        sqlx::query!(
+            r#"
+            DELETE FROM user_sessions 
+            WHERE user_id = $1
+            "#,
+            user_id
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn clear_user_cache(&self, user_id: &str) -> Result<()> {
+        // 캐시 시스템을 사용하는 경우 여기서 구현
+        // 현재는 아무 작업도 하지 않고 성공 반환
+        Ok(())
+    }
 }

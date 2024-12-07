@@ -8,6 +8,7 @@ import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/widgets/server/add_server_modal.dart';
 import 'package:flutter_client/widgets/server/server_list_item.dart';
 import 'package:flutter_client/widgets/common/empty_state_widget.dart';
+import 'package:flutter_client/services/storage_service.dart';
 
 class ServersScreen extends StatefulWidget {
   const ServersScreen({super.key});
@@ -24,7 +25,17 @@ class _ServersScreenState extends State<ServersScreen> {
   bool? _hasWarnings;
   String? _selectedFilter = 'All';
 
-  void _showAddServerModal() {
+  void _showAddServerModal() async {
+    final storage = await StorageService.initialize();
+    if (await storage.getToken() == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인이 필요합니다')),
+      );
+      // 로그인 화면으로 이동
+      Navigator.pushNamed(context, RoutePaths.login);
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

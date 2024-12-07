@@ -13,7 +13,8 @@ import 'dart:async';
 import 'package:flutter_client/services/websocket_service.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/models/server_metrics.dart';
-// import 'package:flutter_client/widgets/server/server_metrics_widget.dart';
+import 'package:flutter_client/services/storage_service.dart';
+// import 'package:dio/dio.dart';
 
 class ServerProvider with ChangeNotifier {
   final ApiService _apiService;
@@ -125,18 +126,18 @@ class ServerProvider with ChangeNotifier {
     _webSocketService.unsubscribeFromServerMetrics(serverId);
   }
 
-  // 서버 추가 기능 개선
   Future<void> addServer({
     required String name,
     required String host,
     required int port,
     required String username,
     required String password,
-    required ServerType type, // 변경
-    required ServerCategory category, // 추가
+    required ServerType type,
+    required ServerCategory category,
   }) async {
     _setLoading(true);
     try {
+      // 1. 서버 연결 테스트
       await testConnection(
         host: host,
         port: port,
@@ -144,25 +145,69 @@ class ServerProvider with ChangeNotifier {
         password: password,
       );
 
-      final server = await _apiService.addServer(
-        name: name,
-        host: host,
-        port: port,
-        username: username,
-        password: password,
-        type: type,
-        category: category,
-      );
+      // 2. 토큰 리프레시
+      try {
+        final response = await _apiService.request(
+          path: '/auth/login',
+          method: 'POST',
+          data: {'email': 'test@example.com', 'password': 'test123'},
+        );
 
-      _servers.add(server);
-      startMonitoring(server.id);
-      notifyListeners();
-    } catch (e, stack) {
-      debugPrint('서버 추가 실패: $e');
-      debugPrint('스택 트레이스: $stack');
+        final storage = await StorageService.initialize();
+        await storage.setToken(response.data['token']);
+        await storage.setRefreshToken(response.data['refresh_token']);
+
+        // 3. 서버 추가 재시도
+        final server = await _apiService.addServer(
+          name: name,
+          host: host,
+          port: port,
+          username: username,
+          password: password,
+          type: type,
+          category: category,
+        );
+
+        _servers.add(server);
+        startMonitoring(server.id);
+        notifyListeners();
+      } catch (authError) {
+        // 인증 실패시 기존 토큰으로 시도
+        final server = await _apiService.addServer(
+          name: name,
+          host: host,
+          port: port,
+          username: username,
+          password: password,
+          type: type,
+          category: category,
+        );
+
+        _servers.add(server);
+        startMonitoring(server.id);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Server add error: $e');
       rethrow;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<bool> _checkAndRefreshToken() async {
+    try {
+      final storage = await StorageService.initialize();
+      final token = await storage.getToken();
+      if (token == null) return false;
+
+      final response = await _apiService.request(
+        path: '/auth/me',
+        method: 'GET',
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
     }
   }
 

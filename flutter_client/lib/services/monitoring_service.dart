@@ -45,7 +45,6 @@ class MonitoringService {
   MonitoringService._internal() {
     _apiService = ApiService(
       baseUrl: AppConstants.baseUrl,
-      webSocketService: WebSocketService.instance,
     );
     _setupHeartbeat();
   }

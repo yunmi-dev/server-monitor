@@ -4,10 +4,9 @@ use actix_web::middleware::Logger;
 use actix_cors::Cors;
 use dotenv::dotenv;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use std::sync::Arc;
 
 use rust_server::{
-    api,
+    api::configure_routes,
     auth::middleware::AuthMiddleware, 
     db::{self, repository::Repository, DbPool},
     monitoring::MonitoringService,
@@ -20,50 +19,40 @@ async fn main() -> Result<(), std::io::Error> {
     dotenv().ok();
     setup_logging();
 
-
-    // src/main.rs나 적절한 시작 지점에서
     println!("JWT_SECRET: {}", std::env::var("JWT_SECRET").unwrap_or_default());
     println!("ENCRYPTION_KEY: {}", std::env::var("ENCRYPTION_KEY").unwrap_or_default());
     println!("ENCRYPTION_NONCE: {}", std::env::var("ENCRYPTION_NONCE").unwrap_or_default());
 
-
-    
-    let config = web::Data::new(ServerConfig::with_defaults());  // web::Data로 직접 감싸기
+    let config = web::Data::new(ServerConfig::with_defaults());
     
     let db_pool = setup_database().await.map_err(|e| {
         std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
     })?;
     
-    let repository = Arc::new(Repository::new(db_pool));
-    let app_repository = web::Data::new(repository.clone());
-    let monitoring_service = web::Data::new(MonitoringService::new(repository));
-
-    // HTTP client for social login
+    let repository = web::Data::new(Repository::new(db_pool));
+    let monitoring_service = web::Data::new(MonitoringService::new(repository.clone()));
     let http_client = web::Data::new(reqwest::Client::new());
 
-    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let port = std::env::var("PORT")
-        .unwrap_or_else(|_| "8080".to_string())
-        .parse::<u16>()
-        .expect("PORT must be a number");
+    let host = "127.0.0.1";
+    let port = 8080;
     let server_address = format!("{}:{}", host, port);
 
     HttpServer::new(move || {
-        App::new()
+        let app = App::new()
             .wrap(Logger::default())
             .wrap(setup_cors())
             .wrap(AuthMiddleware)
-            .app_data(config.clone())        // config 직접 사용
-            .app_data(app_repository.clone())
+            .app_data(config.clone())
+            .app_data(repository.clone())
             .app_data(monitoring_service.clone())
-            .app_data(http_client.clone())
-            .configure(api::configure_routes)
+            .app_data(http_client.clone());
+
+        app.configure(configure_routes)
     })
     .bind(&server_address)?
     .run()
     .await
 }
-// http 2 는 헤더 사용 금지임 - 나 http 몇이야?
 
 fn setup_cors() -> Cors {
     Cors::default()

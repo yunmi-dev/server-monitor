@@ -44,8 +44,16 @@ class Server {
   String? get host => hostname;
 
   factory Server.fromJson(Map<String, dynamic> json) {
+    // ID가 숫자 문자열인 경우를 처리
+    String serverId = '';
+    if (json['id'] is int) {
+      serverId = json['id'].toString();
+    } else if (json['id'] is String) {
+      serverId = json['id'];
+    }
+
     return Server(
-      id: json['id'] ?? '',
+      id: serverId,
       name: json['name'] ?? 'Unknown',
       status: ServerStatus.fromString(json['status'] ?? 'offline'),
       resources: json['resources'] != null

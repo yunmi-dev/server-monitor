@@ -220,10 +220,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             radius: 50,
             backgroundImage: FileImage(_imageFile!),
           )
-        else if (user.profileImage != null)
+        else if (user.profileImageUrl != null)
           CircleAvatar(
             radius: 50,
-            backgroundImage: NetworkImage(user.profileImage!),
+            backgroundImage: NetworkImage(user.profileImageUrl!),
           )
         else
           CircleAvatar(

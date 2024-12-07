@@ -2,14 +2,14 @@
 import 'package:flutter/material.dart';
 
 class SettingsSection extends StatelessWidget {
-  final String title;
+  final String? title;
   final List<Widget> children;
   final Color backgroundColor;
   final TextStyle? titleStyle;
 
   const SettingsSection({
     super.key,
-    required this.title,
+    this.title,
     required this.children,
     this.backgroundColor = const Color(0xFF1E1E1E),
     this.titleStyle,
@@ -20,18 +20,19 @@ class SettingsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          child: Text(
-            title,
-            style: titleStyle ??
-                const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+        if (title != null && title!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Text(
+              title!,
+              style: titleStyle ??
+                  const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
           ),
-        ),
         Container(
           decoration: BoxDecoration(
             color: backgroundColor,

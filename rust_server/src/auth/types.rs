@@ -15,11 +15,13 @@ pub struct RegisterRequest {
     pub name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SocialLoginRequest {
     pub provider: String,
-    pub access_token: String,
+    pub token: String,  // access_token을 token으로 변경 (통일)
+    pub email: Option<String>
 }
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthResponse {

@@ -68,7 +68,7 @@ class SettingsScreen extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 30,
-                backgroundColor: Colors.pink,
+                backgroundColor: const Color.fromARGB(255, 255, 37, 110),
                 child: Text(
                   auth.user?.name.substring(0, 1) ?? 'U',
                   style: const TextStyle(
@@ -208,7 +208,7 @@ class SettingsScreen extends StatelessWidget {
 
   Widget _buildAlertSettings(BuildContext context, SettingsProvider settings) {
     return SettingsSection(
-      title: '경고 임계값',
+      title: '알림 기준',
       backgroundColor: const Color(0xFF1E1E1E),
       titleStyle: const TextStyle(
         color: Colors.white,
@@ -218,7 +218,7 @@ class SettingsScreen extends StatelessWidget {
       children: [
         _buildSliderTile(
           context: context,
-          title: 'CPU 경고 임계값',
+          title: 'CPU 사용량 기준',
           value: settings.cpuWarningThreshold,
           min: 50,
           max: 90,
@@ -226,7 +226,7 @@ class SettingsScreen extends StatelessWidget {
         ),
         _buildSliderTile(
           context: context,
-          title: '메모리 경고 임계값',
+          title: '메모리 사용량 기준',
           value: settings.memoryWarningThreshold,
           min: 50,
           max: 90,
@@ -234,7 +234,7 @@ class SettingsScreen extends StatelessWidget {
         ),
         _buildSliderTile(
           context: context,
-          title: '디스크 경고 임계값',
+          title: '디스크 공간 기준',
           value: settings.diskWarningThreshold,
           min: 70,
           max: 95,
@@ -286,7 +286,6 @@ class SettingsScreen extends StatelessWidget {
 
   Widget _buildDangerZone(BuildContext context) {
     return SettingsSection(
-      title: '위험 구역',
       backgroundColor: const Color(0xFF1E1E1E),
       titleStyle: const TextStyle(
         color: Colors.red,
@@ -346,7 +345,7 @@ class SettingsScreen extends StatelessWidget {
       subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey)),
       value: value,
       onChanged: onChanged,
-      activeColor: Colors.pink,
+      activeColor: const Color.fromARGB(255, 255, 37, 110),
       inactiveTrackColor: Colors.grey.withOpacity(0.3),
     );
   }
@@ -370,7 +369,7 @@ class SettingsScreen extends StatelessWidget {
             divisions: ((max - min) ~/ 5).toInt(),
             label: '${value.round()}%',
             onChanged: onChanged,
-            activeColor: Colors.pink,
+            activeColor: const Color.fromARGB(255, 255, 37, 110),
             inactiveColor: Colors.grey.withOpacity(0.3),
           ),
           Text(

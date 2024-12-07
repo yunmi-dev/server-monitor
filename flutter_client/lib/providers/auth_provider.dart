@@ -6,6 +6,8 @@ import 'package:flutter_client/services/storage_service.dart';
 import 'package:flutter_client/models/user.dart';
 import 'package:flutter_client/utils/error_utils.dart';
 import 'package:flutter_client/utils/logger.dart';
+import 'package:flutter_client/models/auth_result.dart';
+import 'package:flutter_client/models/auth_result.dart' as models;
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService;
@@ -62,6 +64,78 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
+  Future<void> refreshSession() async {
+    if (!isAuthenticated) return;
+
+    final refreshToken = await _storageService.getRefreshToken();
+    if (refreshToken == null) return;
+
+    try {
+      final authResult = await _authService.refreshToken(refreshToken);
+      _user = authResult.user;
+      await _storageService.setToken(authResult.accessToken);
+      await _storageService.setRefreshToken(authResult.refreshToken);
+      _updateLastActivityTime();
+      _startSessionTimer();
+    } catch (e) {
+      logger.error('Session refresh failed: $e');
+      await _handleLogout();
+      rethrow;
+    }
+  }
+
+  Future<void> signInWithGoogle() async {
+    await _handleAuthAction(() async {
+      final authResult = await _authService.signInWithGoogle();
+      _user = authResult.user;
+      await _storageService.setToken(authResult.accessToken);
+      await _storageService.setRefreshToken(authResult.refreshToken);
+      _updateLastActivityTime();
+      _startSessionTimer();
+    });
+  }
+
+  Future<void> signInWithApple() async {
+    await _handleAuthAction(() async {
+      final authResult = await _authService.signInWithApple();
+      _user = authResult.user;
+      await _storageService.setToken(authResult.accessToken);
+      await _storageService.setRefreshToken(authResult.refreshToken);
+      _updateLastActivityTime();
+      _startSessionTimer();
+    });
+  }
+
+  Future<void> signInWithKakao() async {
+    await _handleAuthAction(() async {
+      final authResult = await _authService.signInWithKakao();
+      _user = authResult.user;
+      await _storageService.setToken(authResult.accessToken);
+      await _storageService.setRefreshToken(authResult.refreshToken);
+      _updateLastActivityTime();
+      _startSessionTimer();
+    });
+  }
+
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    await _handleAuthAction(() async {
+      final authResult = await _authService.signUp(
+        name: name,
+        email: email,
+        password: password,
+      );
+      _user = authResult.user;
+      await _storageService.setToken(authResult.accessToken);
+      await _storageService.setRefreshToken(authResult.refreshToken);
+      _updateLastActivityTime();
+      _startSessionTimer();
+    });
+  }
+
   Future<void> _checkSession() async {
     if (_lastActivityTime != null) {
       final inactiveTime = DateTime.now().difference(_lastActivityTime!);
@@ -79,51 +153,23 @@ class AuthProvider with ChangeNotifier {
   // Auth Methods
   Future<void> signInWithEmail(String email, String password) async {
     await _handleAuthAction(() async {
-      final user = await _authService.signInWithEmail(email, password);
-      await _handleSuccessfulAuth(user);
-    });
-  }
-
-  Future<void> signInWithGoogle() async {
-    await _handleAuthAction(() async {
-      final user = await _authService.signInWithGoogle();
-      await _handleSuccessfulAuth(user);
-    });
-  }
-
-  Future<void> signInWithApple() async {
-    await _handleAuthAction(() async {
-      final user = await _authService.signInWithApple();
-      await _handleSuccessfulAuth(user);
-    });
-  }
-
-  Future<void> signInWithKakao() async {
-    await _handleAuthAction(() async {
-      final user = await _authService.signInWithKakao();
-      await _handleSuccessfulAuth(user);
+      final authResult = await _authService.signInWithEmail(email, password);
+      _user = authResult.user;
+      await _storageService.setToken(authResult.accessToken);
+      await _storageService.setRefreshToken(authResult.refreshToken);
+      _updateLastActivityTime();
+      _startSessionTimer();
     });
   }
 
   Future<void> signInWithFacebook() async {
     await _handleAuthAction(() async {
-      final user = await _authService.signInWithFacebook();
-      await _handleSuccessfulAuth(user);
-    });
-  }
-
-  Future<void> signUp({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
-    await _handleAuthAction(() async {
-      final user = await _authService.signUp(
-        name: name,
-        email: email,
-        password: password,
-      );
-      await _handleSuccessfulAuth(user);
+      final authResult = await _authService.signInWithFacebook();
+      _user = authResult.user;
+      await _storageService.setToken(authResult.accessToken);
+      await _storageService.setRefreshToken(authResult.refreshToken);
+      _updateLastActivityTime();
+      _startSessionTimer();
     });
   }
 
@@ -172,28 +218,6 @@ class AuthProvider with ChangeNotifier {
     await _handleAuthAction(() async {
       await _authService.resetPassword(email.trim());
     });
-  }
-
-  Future<void> refreshSession() async {
-    if (!isAuthenticated) return;
-
-    final refreshToken = await _storageService.getRefreshToken();
-    if (refreshToken == null) return;
-
-    try {
-      final user = await _authService.refreshToken(refreshToken);
-      await _handleSuccessfulAuth(user);
-    } catch (e) {
-      logger.error('Session refresh failed: $e');
-      await _handleLogout();
-      rethrow;
-    }
-  }
-
-  Future<void> _handleSuccessfulAuth(User user) async {
-    _user = user;
-    _updateLastActivityTime();
-    _startSessionTimer();
   }
 
   Future<void> _handleAuthAction(Future<void> Function() action) async {

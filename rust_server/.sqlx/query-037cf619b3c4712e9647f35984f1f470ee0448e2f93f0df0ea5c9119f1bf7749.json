@@ -58,7 +58,8 @@
               "Enum": [
                 "physical",
                 "virtual",
-                "container"
+                "container",
+                "linux"
               ]
             }
           }

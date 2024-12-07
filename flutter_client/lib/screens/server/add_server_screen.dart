@@ -17,7 +17,7 @@ class _ServerAddScreenState extends State<ServerAddScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _hostController = TextEditingController();
-  final _portController = TextEditingController(text: '22');
+  final _portController = TextEditingController(); // text: '22'
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 

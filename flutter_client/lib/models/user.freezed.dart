@@ -23,11 +23,19 @@ mixin _$User {
   String get id => throw _privateConstructorUsedError;
   String get name => throw _privateConstructorUsedError;
   String get email => throw _privateConstructorUsedError;
-  String? get profileImage => throw _privateConstructorUsedError;
+  @JsonKey(name: 'role')
+  String get role => throw _privateConstructorUsedError; // 추가
+  @JsonKey(name: 'provider')
+  String get provider => throw _privateConstructorUsedError; // 추가
+  @JsonKey(name: 'profile_image_url')
+  String? get profileImageUrl => throw _privateConstructorUsedError;
   String? get profileUrl => throw _privateConstructorUsedError;
   bool get isEmailVerified => throw _privateConstructorUsedError;
+  @JsonKey(name: 'last_login_at')
   DateTime? get lastLoginAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
   DateTime get createdAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'updated_at')
   DateTime get updatedAt => throw _privateConstructorUsedError;
   Map<String, dynamic>? get preferences => throw _privateConstructorUsedError;
 
@@ -49,12 +57,14 @@ abstract class $UserCopyWith<$Res> {
       {String id,
       String name,
       String email,
-      String? profileImage,
+      @JsonKey(name: 'role') String role,
+      @JsonKey(name: 'provider') String provider,
+      @JsonKey(name: 'profile_image_url') String? profileImageUrl,
       String? profileUrl,
       bool isEmailVerified,
-      DateTime? lastLoginAt,
-      DateTime createdAt,
-      DateTime updatedAt,
+      @JsonKey(name: 'last_login_at') DateTime? lastLoginAt,
+      @JsonKey(name: 'created_at') DateTime createdAt,
+      @JsonKey(name: 'updated_at') DateTime updatedAt,
       Map<String, dynamic>? preferences});
 }
 
@@ -76,7 +86,9 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? id = null,
     Object? name = null,
     Object? email = null,
-    Object? profileImage = freezed,
+    Object? role = null,
+    Object? provider = null,
+    Object? profileImageUrl = freezed,
     Object? profileUrl = freezed,
     Object? isEmailVerified = null,
     Object? lastLoginAt = freezed,
@@ -97,9 +109,17 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
           ? _value.email
           : email // ignore: cast_nullable_to_non_nullable
               as String,
-      profileImage: freezed == profileImage
-          ? _value.profileImage
-          : profileImage // ignore: cast_nullable_to_non_nullable
+      role: null == role
+          ? _value.role
+          : role // ignore: cast_nullable_to_non_nullable
+              as String,
+      provider: null == provider
+          ? _value.provider
+          : provider // ignore: cast_nullable_to_non_nullable
+              as String,
+      profileImageUrl: freezed == profileImageUrl
+          ? _value.profileImageUrl
+          : profileImageUrl // ignore: cast_nullable_to_non_nullable
               as String?,
       profileUrl: freezed == profileUrl
           ? _value.profileUrl
@@ -140,12 +160,14 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
       {String id,
       String name,
       String email,
-      String? profileImage,
+      @JsonKey(name: 'role') String role,
+      @JsonKey(name: 'provider') String provider,
+      @JsonKey(name: 'profile_image_url') String? profileImageUrl,
       String? profileUrl,
       bool isEmailVerified,
-      DateTime? lastLoginAt,
-      DateTime createdAt,
-      DateTime updatedAt,
+      @JsonKey(name: 'last_login_at') DateTime? lastLoginAt,
+      @JsonKey(name: 'created_at') DateTime createdAt,
+      @JsonKey(name: 'updated_at') DateTime updatedAt,
       Map<String, dynamic>? preferences});
 }
 
@@ -164,7 +186,9 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? id = null,
     Object? name = null,
     Object? email = null,
-    Object? profileImage = freezed,
+    Object? role = null,
+    Object? provider = null,
+    Object? profileImageUrl = freezed,
     Object? profileUrl = freezed,
     Object? isEmailVerified = null,
     Object? lastLoginAt = freezed,
@@ -185,9 +209,17 @@ class __$$UserImplCopyWithImpl<$Res>
           ? _value.email
           : email // ignore: cast_nullable_to_non_nullable
               as String,
-      profileImage: freezed == profileImage
-          ? _value.profileImage
-          : profileImage // ignore: cast_nullable_to_non_nullable
+      role: null == role
+          ? _value.role
+          : role // ignore: cast_nullable_to_non_nullable
+              as String,
+      provider: null == provider
+          ? _value.provider
+          : provider // ignore: cast_nullable_to_non_nullable
+              as String,
+      profileImageUrl: freezed == profileImageUrl
+          ? _value.profileImageUrl
+          : profileImageUrl // ignore: cast_nullable_to_non_nullable
               as String?,
       profileUrl: freezed == profileUrl
           ? _value.profileUrl
@@ -224,12 +256,14 @@ class _$UserImpl implements _User {
       {required this.id,
       required this.name,
       required this.email,
-      this.profileImage,
+      @JsonKey(name: 'role') required this.role,
+      @JsonKey(name: 'provider') required this.provider,
+      @JsonKey(name: 'profile_image_url') this.profileImageUrl,
       this.profileUrl,
       this.isEmailVerified = false,
-      this.lastLoginAt,
-      required this.createdAt,
-      required this.updatedAt,
+      @JsonKey(name: 'last_login_at') this.lastLoginAt,
+      @JsonKey(name: 'created_at') required this.createdAt,
+      @JsonKey(name: 'updated_at') required this.updatedAt,
       final Map<String, dynamic>? preferences})
       : _preferences = preferences;
 
@@ -243,17 +277,29 @@ class _$UserImpl implements _User {
   @override
   final String email;
   @override
-  final String? profileImage;
+  @JsonKey(name: 'role')
+  final String role;
+// 추가
+  @override
+  @JsonKey(name: 'provider')
+  final String provider;
+// 추가
+  @override
+  @JsonKey(name: 'profile_image_url')
+  final String? profileImageUrl;
   @override
   final String? profileUrl;
   @override
   @JsonKey()
   final bool isEmailVerified;
   @override
+  @JsonKey(name: 'last_login_at')
   final DateTime? lastLoginAt;
   @override
+  @JsonKey(name: 'created_at')
   final DateTime createdAt;
   @override
+  @JsonKey(name: 'updated_at')
   final DateTime updatedAt;
   final Map<String, dynamic>? _preferences;
   @override
@@ -267,7 +313,7 @@ class _$UserImpl implements _User {
 
   @override
   String toString() {
-    return 'User(id: $id, name: $name, email: $email, profileImage: $profileImage, profileUrl: $profileUrl, isEmailVerified: $isEmailVerified, lastLoginAt: $lastLoginAt, createdAt: $createdAt, updatedAt: $updatedAt, preferences: $preferences)';
+    return 'User(id: $id, name: $name, email: $email, role: $role, provider: $provider, profileImageUrl: $profileImageUrl, profileUrl: $profileUrl, isEmailVerified: $isEmailVerified, lastLoginAt: $lastLoginAt, createdAt: $createdAt, updatedAt: $updatedAt, preferences: $preferences)';
   }
 
   @override
@@ -278,8 +324,11 @@ class _$UserImpl implements _User {
             (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.email, email) || other.email == email) &&
-            (identical(other.profileImage, profileImage) ||
-                other.profileImage == profileImage) &&
+            (identical(other.role, role) || other.role == role) &&
+            (identical(other.provider, provider) ||
+                other.provider == provider) &&
+            (identical(other.profileImageUrl, profileImageUrl) ||
+                other.profileImageUrl == profileImageUrl) &&
             (identical(other.profileUrl, profileUrl) ||
                 other.profileUrl == profileUrl) &&
             (identical(other.isEmailVerified, isEmailVerified) ||
@@ -301,7 +350,9 @@ class _$UserImpl implements _User {
       id,
       name,
       email,
-      profileImage,
+      role,
+      provider,
+      profileImageUrl,
       profileUrl,
       isEmailVerified,
       lastLoginAt,
@@ -330,12 +381,14 @@ abstract class _User implements User {
       {required final String id,
       required final String name,
       required final String email,
-      final String? profileImage,
+      @JsonKey(name: 'role') required final String role,
+      @JsonKey(name: 'provider') required final String provider,
+      @JsonKey(name: 'profile_image_url') final String? profileImageUrl,
       final String? profileUrl,
       final bool isEmailVerified,
-      final DateTime? lastLoginAt,
-      required final DateTime createdAt,
-      required final DateTime updatedAt,
+      @JsonKey(name: 'last_login_at') final DateTime? lastLoginAt,
+      @JsonKey(name: 'created_at') required final DateTime createdAt,
+      @JsonKey(name: 'updated_at') required final DateTime updatedAt,
       final Map<String, dynamic>? preferences}) = _$UserImpl;
 
   factory _User.fromJson(Map<String, dynamic> json) = _$UserImpl.fromJson;
@@ -347,16 +400,26 @@ abstract class _User implements User {
   @override
   String get email;
   @override
-  String? get profileImage;
+  @JsonKey(name: 'role')
+  String get role; // 추가
+  @override
+  @JsonKey(name: 'provider')
+  String get provider; // 추가
+  @override
+  @JsonKey(name: 'profile_image_url')
+  String? get profileImageUrl;
   @override
   String? get profileUrl;
   @override
   bool get isEmailVerified;
   @override
+  @JsonKey(name: 'last_login_at')
   DateTime? get lastLoginAt;
   @override
+  @JsonKey(name: 'created_at')
   DateTime get createdAt;
   @override
+  @JsonKey(name: 'updated_at')
   DateTime get updatedAt;
   @override
   Map<String, dynamic>? get preferences;

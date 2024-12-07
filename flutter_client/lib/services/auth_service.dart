@@ -12,6 +12,7 @@ import 'package:flutter_client/models/user.dart';
 import 'package:flutter_client/services/api_service.dart';
 import 'package:flutter_client/services/storage_service.dart';
 import 'package:flutter_client/utils/logger.dart';
+import 'package:flutter_client/models/auth_result.dart' as models;
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'auth_service.freezed.dart';
@@ -90,9 +91,9 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<User> signInWithEmail(String email, String password) async {
+  Future<models.AuthResult> signInWithEmail(
+      String email, String password) async {
     return handleAuthRequest(() async {
-      // Debug mode에서도 실제 서버 인증 사용
       final response = await _apiService.request(
         path: '/auth/login',
         method: 'POST',
@@ -102,237 +103,184 @@ class AuthService extends ChangeNotifier {
         },
       );
 
-      // JWT 토큰 응답 처리
-      if (response.statusCode == 200) {
-        final authResult = AuthResult(
-          accessToken: response.data['access_token'],
-          refreshToken: response.data['refresh_token'],
-          user: User.fromJson(response.data['user']),
+      final authResult = models.AuthResult.fromJson(response.data);
+      await _handleAuthResult(authResult);
+      return authResult;
+    });
+  }
+
+  Future<models.AuthResult> signInWithApple() async {
+    return handleAuthRequest(() async {
+      if (!kDebugMode) {
+        final credential = await SignInWithApple.getAppleIDCredential(
+          scopes: [
+            AppleIDAuthorizationScopes.email,
+            AppleIDAuthorizationScopes.fullName,
+          ],
         );
 
+        final response = await _apiService.request(
+          path: '/auth/social-login',
+          method: 'POST',
+          data: {
+            'provider': 'apple',
+            'token': credential.identityToken ?? '',
+            'email': credential.email,
+          },
+        );
+
+        final authResult = models.AuthResult.fromJson(response.data);
         await _handleAuthResult(authResult);
-        return authResult.user;
+        return authResult;
       } else {
-        throw AuthException('Login failed: ${response.data['message']}');
+        final response = await _apiService.request(
+          path: '/auth/login',
+          method: 'POST',
+          data: {
+            'email': 'test@example.com',
+            'password': 'test123',
+          },
+        );
+
+        final authResult = models.AuthResult.fromJson(response.data);
+        await _handleAuthResult(authResult);
+        return authResult;
       }
     });
   }
 
-  Future<User> signInWithApple() async {
+  Future<models.AuthResult> signInWithKakao() async {
     return handleAuthRequest(() async {
-      if (kDebugMode) {
-        // 더미 유저 데이터 생성
-        final dummyUser = User(
-          id: 'apple_mock_id',
-          email: 'apple_user@example.com',
-          name: 'Apple User',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+      if (!kDebugMode) {
+        if (await kakao.isKakaoTalkInstalled()) {
+          await kakao.UserApi.instance.loginWithKakaoTalk();
+        } else {
+          await kakao.UserApi.instance.loginWithKakaoAccount();
+        }
+
+        final token =
+            await kakao.TokenManagerProvider.instance.manager.getToken();
+        if (token?.accessToken == null) {
+          throw AuthException('Failed to get Kakao access token');
+        }
+
+        final response = await _apiService.request(
+          path: '/auth/social-login',
+          method: 'POST',
+          data: {
+            'provider': 'kakao',
+            'token': token!.accessToken,
+          },
         );
 
-        final dummyAuthResult = AuthResult(
-          accessToken: 'dummy_apple_access_token',
-          refreshToken: 'dummy_apple_refresh_token',
-          user: dummyUser,
-        );
-
-        await _handleAuthResult(dummyAuthResult);
-        return dummyUser;
-      }
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-
-      final response = await _apiService.request(
-        path: '/auth/social-login',
-        method: 'POST',
-        data: {
-          'provider': 'apple',
-          'token': credential.identityToken ?? '',
-          'email': credential.email,
-        },
-      );
-
-      final authResult = AuthResult.fromJson(response.data);
-      await _handleAuthResult(authResult);
-      return authResult.user;
-    });
-  }
-
-  Future<User> signInWithKakao() async {
-    return handleAuthRequest(() async {
-      if (kDebugMode) {
-        // 더미 유저 데이터로 즉시 반환
-        final dummyUser = User(
-          id: 'kakao_${DateTime.now().millisecondsSinceEpoch}',
-          email: 'kakao_test@example.com',
-          name: '카카오 테스트',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-
-        final dummyAuthResult = AuthResult(
-          accessToken: 'dummy_kakao_access_token',
-          refreshToken: 'dummy_kakao_refresh_token',
-          user: dummyUser,
-        );
-
-        await _handleAuthResult(dummyAuthResult);
-        return dummyUser;
-      }
-
-      // 프로덕션 코드는 그대로 유지
-      if (await kakao.isKakaoTalkInstalled()) {
-        await kakao.UserApi.instance.loginWithKakaoTalk();
+        final authResult = models.AuthResult.fromJson(response.data);
+        await _handleAuthResult(authResult);
+        return authResult;
       } else {
-        await kakao.UserApi.instance.loginWithKakaoAccount();
+        final response = await _apiService.request(
+          path: '/auth/login',
+          method: 'POST',
+          data: {
+            'email': 'test@example.com',
+            'password': 'test123',
+          },
+        );
+
+        final authResult = models.AuthResult.fromJson(response.data);
+        await _handleAuthResult(authResult);
+        return authResult;
       }
-
-      final token =
-          await kakao.TokenManagerProvider.instance.manager.getToken();
-      if (token?.accessToken == null) {
-        throw AuthException('Failed to get Kakao access token');
-      }
-
-      final response = await _apiService.request(
-        path: '/auth/social-login',
-        method: 'POST',
-        data: {
-          'provider': 'kakao',
-          'token': token!.accessToken,
-        },
-      );
-
-      final authResult = AuthResult.fromJson(response.data);
-      await _handleAuthResult(authResult);
-      return authResult.user;
     });
   }
 
-  Future<User> signInWithFacebook() async {
+  Future<models.AuthResult> signInWithGoogle() async {
     return handleAuthRequest(() async {
-      if (kDebugMode) {
-        // 더미 유저 데이터로 즉시 반환
-        final dummyUser = User(
-          id: 'fb_${DateTime.now().millisecondsSinceEpoch}',
-          email: 'facebook_test@example.com',
-          name: 'Facebook 테스트',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+      if (!kDebugMode) {
+        final googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) {
+          throw AuthException('Google sign in cancelled');
+        }
+
+        final googleAuth = await googleUser.authentication;
+        final response = await _apiService.request(
+          path: '/auth/social-login',
+          method: 'POST',
+          data: {
+            'provider': 'google',
+            'token': googleAuth.idToken,
+            'email': googleUser.email,
+          },
         );
 
-        final dummyAuthResult = AuthResult(
-          accessToken: 'dummy_facebook_access_token',
-          refreshToken: 'dummy_facebook_refresh_token',
-          user: dummyUser,
+        final authResult = models.AuthResult.fromJson(response.data);
+        await _handleAuthResult(authResult);
+        return authResult;
+      } else {
+        // 개발 모드에서도 실제 서버 인증 사용
+        final response = await _apiService.request(
+          path: '/auth/login',
+          method: 'POST',
+          data: {
+            'email': 'test@example.com',
+            'password': 'test123',
+          },
         );
 
-        await _handleAuthResult(dummyAuthResult);
-        return dummyUser;
+        final authResult = models.AuthResult.fromJson(response.data);
+        await _handleAuthResult(authResult);
+        return authResult;
       }
-
-      // 프로덕션 코드는 그대로 유지
-      final result = await FacebookAuth.instance.login(
-        permissions: ['email', 'public_profile'],
-      );
-
-      if (result.accessToken == null) {
-        throw AuthException('Failed to get Facebook access token');
-      }
-
-      final response = await _apiService.request(
-        path: '/auth/social-login',
-        method: 'POST',
-        data: {
-          'provider': 'facebook',
-          'token': result.accessToken!.toString(),
-        },
-      );
-
-      final authResult = AuthResult.fromJson(response.data);
-      await _handleAuthResult(authResult);
-      return authResult.user;
     });
   }
 
-  Future<User> signInWithGoogle() async {
+  Future<models.AuthResult> signInWithFacebook() async {
     return handleAuthRequest(() async {
-      if (kDebugMode) {
-        // 더미 유저 데이터로 즉시 반환
-        final dummyUser = User(
-          id: 'google_${DateTime.now().millisecondsSinceEpoch}',
-          email: 'google_test@example.com',
-          name: 'Google 테스트',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+      if (!kDebugMode) {
+        final result = await FacebookAuth.instance.login();
+        if (result.accessToken == null) {
+          throw AuthException('Failed to get Facebook access token');
+        }
+
+        final response = await _apiService.request(
+          path: '/auth/social-login',
+          method: 'POST',
+          data: {
+            'provider': 'facebook',
+            'token': result.accessToken!.tokenString,
+            // provider_type을 명시적으로 지정
+            'provider_type': 'facebook'
+          },
         );
 
-        final dummyAuthResult = AuthResult(
-          accessToken: 'dummy_google_access_token',
-          refreshToken: 'dummy_google_refresh_token',
-          user: dummyUser,
+        final authResult = models.AuthResult.fromJson(response.data);
+        await _handleAuthResult(authResult);
+        return authResult;
+      } else {
+        // 개발 모드에서는 소셜 로그인도 social-login 엔드포인트 사용
+        final response = await _apiService.request(
+          path: '/auth/social-login',
+          method: 'POST',
+          data: {
+            'provider': 'facebook',
+            'token': 'test_token',
+            'provider_type': 'facebook',
+            'email': 'test@example.com'
+          },
         );
 
-        await _handleAuthResult(dummyAuthResult);
-        return dummyUser;
+        final authResult = models.AuthResult.fromJson(response.data);
+        await _handleAuthResult(authResult);
+        return authResult;
       }
-
-      // 프로덕션 코드는 그대로 유지
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        throw AuthException('Google sign in cancelled');
-      }
-
-      final googleAuth = await googleUser.authentication;
-
-      final response = await _apiService.request(
-        path: '/auth/social-login',
-        method: 'POST',
-        data: {
-          'provider': 'google',
-          'token': googleAuth.idToken,
-          'email': googleUser.email,
-        },
-      );
-
-      final authResult = AuthResult.fromJson(response.data);
-      await _handleAuthResult(authResult);
-      return authResult.user;
     });
   }
 
-  Future<User> signUp({
+  Future<models.AuthResult> signUp({
     required String name,
     required String email,
     required String password,
   }) async {
     return handleAuthRequest(() async {
-      // 개발 환경인 경우 더미 응답 사용
-      if (kDebugMode) {
-        // 더미 유저 데이터 생성
-        final dummyUser = User(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          email: email,
-          name: name,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-
-        // 더미 인증 결과 생성
-        final dummyAuthResult = AuthResult(
-          accessToken: 'dummy_access_token_${dummyUser.id}',
-          refreshToken: 'dummy_refresh_token_${dummyUser.id}',
-          user: dummyUser,
-        );
-
-        await _handleAuthResult(dummyAuthResult);
-        return dummyUser;
-      }
-
-      // 프로덕션 환경에서는 실제 API 호출
       final response = await _apiService.request(
         path: '/auth/register',
         method: 'POST',
@@ -343,9 +291,9 @@ class AuthService extends ChangeNotifier {
         },
       );
 
-      final authResult = AuthResult.fromJson(response.data);
+      final authResult = models.AuthResult.fromJson(response.data);
       await _handleAuthResult(authResult);
-      return authResult.user;
+      return authResult;
     });
   }
 
@@ -407,17 +355,10 @@ class AuthService extends ChangeNotifier {
     });
   }
 
-  // 토큰 갱신 전에 refreshToken 유효성 검사 추가
-  Future<User> refreshToken(String refreshToken) async {
+  Future<models.AuthResult> refreshToken(String refreshToken) async {
     return handleAuthRequest(() async {
       if (refreshToken.isEmpty) {
         throw AuthException('No refresh token provided');
-      }
-
-      // refresh token 유효성 검사
-      if (!_isTokenValid(refreshToken)) {
-        await _clearAuth();
-        throw AuthException('Refresh token expired. Please sign in again.');
       }
 
       final response = await _apiService.request(
@@ -426,34 +367,15 @@ class AuthService extends ChangeNotifier {
         data: {'refresh_token': refreshToken},
       );
 
-      final authResult = AuthResult.fromJson(response.data);
+      final authResult = models.AuthResult.fromJson(response.data);
       await _handleAuthResult(authResult);
-      return authResult.user;
+      return authResult;
     });
   }
 
   Future<User> getCurrentUser() async {
     return handleAuthRequest(() async {
       if (_currentUser != null) return _currentUser!;
-
-      final token = await _storageService.getToken();
-      final refreshTokenStr = await _storageService.getRefreshToken();
-
-      if (token == null || refreshTokenStr == null) {
-        throw AuthException('No token found');
-      }
-
-      // 토큰 유효성 검사 추가
-      if (!_isTokenValid(token)) {
-        // 토큰이 만료되었거나 곧 만료될 예정이면 갱신 시도
-        try {
-          // refreshToken 메서드 호출 시 문자열로 전달
-          return await refreshToken(refreshTokenStr);
-        } catch (e) {
-          await _clearAuth();
-          throw AuthException('Session expired. Please sign in again.');
-        }
-      }
 
       final response = await _apiService.request(
         path: '/auth/me',
@@ -464,6 +386,14 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
       return _currentUser!;
     });
+  }
+
+  Future<void> _handleAuthResult(models.AuthResult result) async {
+    await _storageService.setToken(result.accessToken);
+    await _storageService.setRefreshToken(result.refreshToken);
+    _currentUser = result.user;
+    _setupTokenRefresh();
+    notifyListeners();
   }
 
   void _setupTokenRefresh() {
@@ -528,14 +458,6 @@ class AuthService extends ChangeNotifier {
         },
       );
     });
-  }
-
-  Future<void> _handleAuthResult(AuthResult result) async {
-    await _storageService.setToken(result.accessToken);
-    await _storageService.setRefreshToken(result.refreshToken);
-    _currentUser = result.user;
-    _setupTokenRefresh();
-    notifyListeners();
   }
 
   Future<void> _clearAuth() async {

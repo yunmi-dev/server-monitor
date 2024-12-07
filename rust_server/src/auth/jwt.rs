@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use chrono::Utc;
 use crate::error::AppError;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,           // user id
     pub exp: i64,             // expiration time
@@ -16,6 +16,8 @@ pub struct Claims {
 pub struct TokenPair {
     pub access_token: String,
     pub refresh_token: String,
+    pub token_type: String,    
+    pub expires_in: i64,        
 }
 
 #[allow(dead_code)]
@@ -57,6 +59,8 @@ pub fn create_token_pair(user_id: &str) -> Result<TokenPair, AppError> {
     Ok(TokenPair {
         access_token,
         refresh_token,
+        token_type: "Bearer".to_string(),
+        expires_in: ACCESS_TOKEN_DURATION,
     })
 }
 

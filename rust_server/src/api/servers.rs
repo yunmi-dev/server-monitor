@@ -1,26 +1,32 @@
 // src/api/servers.rs
-use actix_web::{web, HttpResponse, Result, Error};
+use actix_web::{web, HttpResponse, Result, error::ResponseError};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use ssh2::Session;
-use tokio::net::{TcpStream, lookup_host};
+use tokio::net::TcpStream;
+use tokio::time::timeout;
 use std::time::Duration;
-use std::io::Read;
 use std::sync::Arc;
+use std::fmt;
 use serde_json::json;
+use tracing::{debug, info};
 use crate::db::{models::{Server, ServerType}, repository::Repository};
 use crate::models::logs::LogEntry;
 use crate::config::ServerConfig;
 use crate::utils::encryption::Encryptor;
 
 #[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
 pub struct CreateServerRequest {
     pub name: String,
     pub host: String,
     pub port: i32,
     pub username: String,
     pub password: String,
+    #[serde(rename = "type")]
     pub server_type: ServerType,
+    #[serde(skip)]
+    pub category: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -34,22 +40,6 @@ pub struct TestConnectionRequest {
 #[derive(serde::Deserialize)]
 pub struct UpdateServerStatusRequest {
     pub is_online: bool,
-}
-
-#[derive(serde::Serialize)]
-struct TestConnectionResponse {
-    success: bool,
-    message: String,
-    details: Option<ConnectionDetails>,
-}
-
-#[derive(serde::Serialize)]
-struct ConnectionDetails {
-    dns_resolved: bool,
-    tcp_connected: bool,
-    ssh_authenticated: bool,
-    latency_ms: u64,
-    server_version: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -100,65 +90,94 @@ pub struct ResourceHistory {
     pub network: String,
 }
 
+
+// 커스텀 에러 타입 정의
+#[derive(Debug)]
+pub enum ServerError {
+    ConnectionFailed(String),
+    ValidationFailed(String),
+    InternalError(String),
+}
+
+impl fmt::Display for ServerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ServerError::ConnectionFailed(msg) => write!(f, "Connection failed: {}", msg),
+            ServerError::ValidationFailed(msg) => write!(f, "Validation failed: {}", msg),
+            ServerError::InternalError(msg) => write!(f, "Internal error: {}", msg),
+        }
+    }
+}
+
+impl ResponseError for ServerError {
+    fn error_response(&self) -> HttpResponse {
+        match self {
+            ServerError::ConnectionFailed(msg) => HttpResponse::BadRequest().json(json!({
+                "success": false,
+                "message": msg
+            })),
+            ServerError::ValidationFailed(msg) => HttpResponse::BadRequest().json(json!({
+                "success": false,
+                "message": msg
+            })),
+            ServerError::InternalError(msg) => HttpResponse::InternalServerError().json(json!({
+                "success": false,
+                "message": msg
+            })),
+        }
+    }
+}
+
 // 서버 생성
 pub async fn create_server(
-    repo: web::Data<Arc<Repository>>,
+    repo: web::Data<Repository>,
     server_info: web::Json<CreateServerRequest>,
     config: web::Data<ServerConfig>,
-) -> Result<HttpResponse, Error> {
-    // Encryptor 인스턴스 생성
-    let encryptor = Encryptor::new(&config.encryption.key, &config.encryption.nonce)
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+) -> Result<HttpResponse> {
+    // 1. 입력값 검증
+    if server_info.name.is_empty() || server_info.host.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(json!({
+            "error": "Invalid input parameters"
+        })));
+    }
 
-    // 비밀번호 암호화
-    let encrypted_password = encryptor.encrypt(&server_info.password)
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
-
-    let server = Server {
-        id: Uuid::new_v4().to_string(),
-        name: server_info.name.clone(),
-        hostname: server_info.host.clone(),
-        ip_address: server_info.host.clone(),
-        port: server_info.port,
-        username: server_info.username.clone(),
-        encrypted_password,  // 암호화된 비밀번호 저장
-        location: "Unknown".to_string(),
-        description: None,
-        server_type: server_info.server_type.clone(),
-        is_online: false,
-        last_seen_at: None,
-        metadata: Some(serde_json::json!({})),
-        created_by: None,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-    };
-
-    // hostname 중복 체크
+    // 2. 중복 확인
     if let Ok(Some(_)) = repo.get_server_by_hostname(&server_info.host).await {
         return Ok(HttpResponse::Conflict().json(json!({
             "error": "Server with this hostname already exists"
         })));
     }
 
-    tracing::debug!("Creating server with info: {:?}", server_info);
+    // 3. 비밀번호 암호화
+    let encryptor = Encryptor::new(&config.encryption.key, &config.encryption.nonce)?;
+    let encrypted_password = encryptor.encrypt(&server_info.password)?;
 
+    // 4. 서버 생성
+    let server = Server {
+        id: Uuid::new_v4().to_string(),
+        name: server_info.name.clone(),
+        hostname: server_info.host.clone(),
+        port: server_info.port,
+        username: server_info.username.clone(),
+        encrypted_password,
+        server_type: server_info.server_type.clone(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+        ..Default::default()
+    };
+
+    // 5. DB에 저장
     match repo.create_server(server).await {
-        Ok(created_server) => {
-            tracing::info!("Server created successfully: {:?}", created_server);
-            Ok(HttpResponse::Created().json(created_server))
-        }
-        Err(e) => {
-            tracing::error!("Failed to create server: {:?}", e);
-            Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": format!("Failed to create server: {}", e)
-            })))
-        }
+        Ok(created_server) => Ok(HttpResponse::Created().json(created_server)),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "error": format!("Failed to create server: {}", e)
+        }))),
     }
 }
 
 // 서버 목록 조회
 pub async fn get_servers(
-    repo: web::Data<Arc<Repository>>,
+    repo: web::Data<Repository>,
 ) -> Result<HttpResponse> {
     let servers = repo.list_servers().await
         .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
@@ -253,141 +272,100 @@ pub async fn get_server_metrics(
 }
 
 // 연결 테스트
+
 pub async fn test_connection(
     connection_info: web::Json<TestConnectionRequest>,
-) -> Result<HttpResponse> {
+) -> Result<HttpResponse, ServerError> {
     let start_time = std::time::Instant::now();
-    let dns_timeout = Duration::from_secs(5);
-    let tcp_timeout = Duration::from_secs(5);
+    debug!("Starting connection test to {}:{}", connection_info.host, connection_info.port);
 
-    let mut details = ConnectionDetails {
-        dns_resolved: false,
-        tcp_connected: false,
-        ssh_authenticated: false,
-        latency_ms: 0,
-        server_version: None,
-    };
-
-    // TCP 연결 테스트 전에 호스트 검증 추가
-    if connection_info.host == "127.0.0.1" {
-        return Ok(HttpResponse::BadRequest().json(TestConnectionResponse {
-            success: false,
-            message: "For security reasons, connections to localhost are not allowed".to_string(),
-            details: Some(details),
-        }));
+    // 1. 입력값 검증
+    if connection_info.host.is_empty() || connection_info.username.is_empty() {
+        return Err(ServerError::ValidationFailed(
+            "Host and username cannot be empty".to_string()
+        ));
     }
 
-    // 1. DNS 조회 테스트
-    let lookup_result = match tokio::time::timeout(
-        dns_timeout,
-        lookup_host(format!("{}:{}", connection_info.host, connection_info.port))
+    if connection_info.port <= 0 || connection_info.port > 65535 {
+        return Err(ServerError::ValidationFailed(
+            "Invalid port number".to_string()
+        ));
+    }
+
+    // 2. DNS 조회
+    let addr = match timeout(
+        Duration::from_secs(30),
+        tokio::net::lookup_host(format!("{}:{}", connection_info.host, connection_info.port))
     ).await {
-        Ok(Ok(addrs)) => {
-            details.dns_resolved = true;
-            Ok(addrs.collect::<Vec<_>>())
+        Ok(Ok(mut addrs)) => match addrs.next() {
+            Some(addr) => {
+                debug!("DNS resolution successful: {}", addr);
+                addr
+            },
+            None => return Err(ServerError::ConnectionFailed(
+                "Could not resolve hostname".to_string()
+            )),
         },
-        Ok(Err(e)) => Err(format!("DNS lookup failed: {}", e)),
-        Err(_) => Err("DNS lookup timed out".to_string()),
+        _ => return Err(ServerError::ConnectionFailed(
+            "DNS lookup failed - please check the hostname".to_string()
+        )),
     };
 
-    if let Err(e) = lookup_result {
-        return Ok(HttpResponse::BadRequest().json(TestConnectionResponse {
-            success: false,
-            message: e,
-            details: Some(details),
-        }));
-    }
-
-    // 2. TCP 연결 테스트
-    let tcp_result = match tokio::time::timeout(
-        tcp_timeout,  // timeout 대신 tcp_timeout 사용
-        TcpStream::connect(format!("{}:{}", connection_info.host, connection_info.port))
+    // 3. TCP 연결
+    let tcp_stream = match timeout(
+        Duration::from_secs(30),
+        TcpStream::connect(&addr)
     ).await {
         Ok(Ok(stream)) => {
-            details.tcp_connected = true;
-            Ok(stream)
+            debug!("TCP connection established to {}", addr);
+            stream
         },
-        Ok(Err(e)) => Err(format!("TCP connection failed: {}", e)),
-        Err(_) => Err("TCP connection timed out".to_string()),
+        Ok(Err(e)) => return Err(ServerError::ConnectionFailed(
+            format!("Cannot connect to server: {}. Please check if the port is open and server is reachable.", e)
+        )),
+        Err(_) => return Err(ServerError::ConnectionFailed(
+            "Connection timed out - server is not responding".to_string()
+        )),
     };
 
-    let tcp_stream = match tcp_result {
-        Ok(stream) => stream,
-        Err(e) => {
-            return Ok(HttpResponse::BadRequest().json(TestConnectionResponse {
-                success: false,
-                message: e,
-                details: Some(details),
-            }));
-        }
-    };
-
-    // 3. SSH 연결 및 인증 테스트
-    let ssh_result = tokio::task::spawn_blocking(move || -> Result<(Session, Option<String>), String> {
-        let mut session = match Session::new() {
-            Ok(session) => session,
-            Err(e) => return Err(format!("Failed to create SSH session: {}", e)),
-        };
-
+    // 4. SSH 연결
+    let connection_info = connection_info.into_inner();
+    let _ssh_result = tokio::task::spawn_blocking(move || -> Result<(), ServerError> {
+        let mut session = Session::new().map_err(|e| 
+            ServerError::InternalError(format!("SSH session creation failed: {}", e))
+        )?;
+        
         session.set_tcp_stream(tcp_stream);
+        debug!("Starting SSH handshake");
+        
+        session.set_timeout(30000); // 30 seconds
         
         if let Err(e) = session.handshake() {
-            return Err(format!("SSH handshake failed: {}", e));
+            return Err(ServerError::ConnectionFailed(
+                format!("SSH handshake failed: {}. Please check if SSH service is running.", e)
+            ));
         }
-
-        let server_version = session.banner().map(|b| b.to_string());
+        
+        debug!("SSH handshake successful, attempting authentication");
         
         if let Err(e) = session.userauth_password(&connection_info.username, &connection_info.password) {
-            return Err(format!("Authentication failed: {}", e));
-        }
-
-        let mut channel = match session.channel_session() {
-            Ok(channel) => channel,
-            Err(e) => return Err(format!("Failed to create channel: {}", e)),
-        };
-
-        if let Err(e) = channel.exec("echo test") {
-            return Err(format!("Failed to execute command: {}", e));
+            return Err(ServerError::ConnectionFailed(
+                format!("Authentication failed: {}. Please check username and password.", e)
+            ));
         }
         
-        let mut output = String::new();
-        if let Err(e) = channel.read_to_string(&mut output) {
-            return Err(format!("Failed to read output: {}", e));
-        }
+        debug!("SSH authentication successful");
+        Ok(())
+    }).await.map_err(|e| ServerError::InternalError(
+        format!("Task join error: {}", e)
+    ))??;
 
-        if let Err(e) = channel.wait_close() {
-            return Err(format!("Failed to close channel: {}", e));
-        }
-
-        Ok((session, server_version))
-    }).await;
-
-    details.latency_ms = start_time.elapsed().as_millis() as u64;
-
-    match ssh_result {
-        Ok(Ok((_, server_version))) => {
-            details.ssh_authenticated = true;
-            details.server_version = server_version;
-            
-            Ok(HttpResponse::Ok().json(TestConnectionResponse {
-                success: true,
-                message: "Successfully connected and authenticated".to_string(),
-                details: Some(details),
-            }))
-        },
-        Ok(Err(e)) => {
-            Ok(HttpResponse::BadRequest().json(TestConnectionResponse {
-                success: false,
-                message: e,
-                details: Some(details),
-            }))
-        },
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(TestConnectionResponse {
-                success: false,
-                message: format!("Internal error during SSH test: {}", e),
-                details: Some(details),
-            }))
-        }
-    }
+    let elapsed = start_time.elapsed().as_millis() as u64;
+    info!("Connection test successful ({}ms)", elapsed);
+    
+    Ok(HttpResponse::Ok().json(json!({
+        "success": true,
+        "message": "Connection successful",
+        "latency_ms": elapsed
+    })))
 }

@@ -12,61 +12,147 @@ import 'package:flutter_client/models/log_entry.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/services/storage_service.dart';
 
-// import 'package:dio/dio.dart';
-
 class ApiService {
   late final Dio _dio;
-  final WebSocketService _webSocketService;
+  final WebSocketService _webSocketService = WebSocketService.instance;
 
-  ApiService({
-    required String baseUrl,
-    Dio? dio,
-    WebSocketService? webSocketService,
-  }) : _webSocketService = webSocketService ?? WebSocketService.instance {
-    _dio = dio ??
-        Dio(BaseOptions(
-          baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 30), // 타임아웃 증가
-          receiveTimeout: const Duration(seconds: 30),
-          contentType: 'application/json',
-          validateStatus: (status) => status != null && status < 500,
-        ));
+  // 타임아웃 상수 정의
+  static const Duration defaultTimeout = Duration(minutes: 1);
+
+  ApiService({required String baseUrl}) {
+    _dio = Dio(BaseOptions(
+      baseUrl: baseUrl,
+      contentType: 'application/json',
+      connectTimeout: defaultTimeout,
+      receiveTimeout: defaultTimeout,
+      sendTimeout: defaultTimeout,
+    ));
     _setupInterceptors();
   }
 
-  Dio _createDio(String baseUrl) {
-    return Dio(BaseOptions(
-      baseUrl: baseUrl, // 이미 /api/v1이 포함되어 있어야 함
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-      contentType: 'application/json',
-      validateStatus: (status) {
-        return status != null && status < 500;
-      },
-      headers: {
-        'Accept': 'application/json',
-        'content-type': 'application/json',
-      },
-    ));
+  Future<bool> testServerConnection({
+    required String host,
+    required int port,
+    required String username,
+    required String password,
+  }) async {
+    try {
+      debugPrint('Starting connection test to $host:$port');
+
+      final testDio = Dio(BaseOptions(
+        baseUrl: _dio.options.baseUrl,
+        contentType: 'application/json',
+        connectTimeout: defaultTimeout,
+        receiveTimeout: defaultTimeout,
+        sendTimeout: defaultTimeout,
+        validateStatus: (_) => true,
+      ));
+
+      final response = await testDio.post(
+        '/servers/test-connection',
+        data: {
+          'host': host.trim(),
+          'port': port,
+          'username': username.trim(),
+          'password': password,
+        },
+      );
+
+      debugPrint('Connection test response: ${response.data}');
+
+      if (response.statusCode != 200) {
+        final message = response.data['message'] ?? 'Connection test failed';
+        throw Exception(message);
+      }
+
+      return response.data['success'] == true;
+    } on DioException catch (e) {
+      debugPrint('DioException during connection test: ${e.message}');
+      if (e.type == DioExceptionType.receiveTimeout) {
+        throw Exception('연결 시간이 초과되었습니다. 서버가 접근 가능하고 SSH 서비스가 실행 중인지 확인해주세요.');
+      } else if (e.type == DioExceptionType.connectionTimeout) {
+        throw Exception('서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.');
+      }
+      throw Exception('연결 테스트 실패: ${e.message}');
+    } catch (e) {
+      debugPrint('Error during connection test: $e');
+      rethrow;
+    }
+  }
+
+  Future<Server> addServer({
+    required String name,
+    required String host,
+    required int port,
+    required String username,
+    required String password,
+    required ServerType type,
+    required ServerCategory category,
+  }) async {
+    try {
+      // 1. 먼저 연결 테스트
+      await testServerConnection(
+        host: host,
+        port: port,
+        username: username,
+        password: password,
+      );
+
+      debugPrint('Connection test successful, proceeding with server creation');
+
+      // 2. 서버 추가 요청
+      final response = await _dio.post(
+        '/servers',
+        data: {
+          'name': name.trim(),
+          'host': host.trim(),
+          'port': port,
+          'username': username.trim(),
+          'password': password,
+          'type': type.toString().split('.').last.toLowerCase(),
+          'category': category.toString().split('.').last.toLowerCase(),
+        },
+      );
+
+      debugPrint('Server creation response: ${response.data}');
+
+      if (response.statusCode != 201 && response.statusCode != 200) {
+        throw Exception(response.data['message'] ?? 'Failed to create server');
+      }
+
+      return Server.fromJson(response.data);
+    } catch (e) {
+      debugPrint('Error creating server: $e');
+      rethrow;
+    }
   }
 
   void _setupInterceptors() {
+    _dio.interceptors.clear();
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final storage = await StorageService.initialize();
-          final token = await storage.getToken();
-          print('Stored token: $token'); // TODO: 디버깅용
-          if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
+          try {
+            final storage = await StorageService.initialize();
+            final token = await storage.getToken();
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          } catch (e) {
+            debugPrint('Error getting token: $e');
           }
           return handler.next(options);
         },
       ),
     );
+
+    // API 요청에 디버그 로그 추가 TODO
+    _dio.interceptors.add(LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        logPrint: (obj) => debugPrint(obj.toString())));
   }
 
-  // 응답 처리 로직 수정
   Future<T> _handleRequest<T>(
     Future<Response<dynamic>> Function() request,
     T Function(dynamic data) converter,
@@ -86,55 +172,6 @@ class ApiService {
       return converter(response.data);
     } catch (e) {
       debugPrint('Error in _handleRequest: $e');
-      rethrow;
-    }
-  }
-
-  Future<Server> addServer({
-    required String name,
-    required String host,
-    required int port,
-    required String username,
-    required String password,
-    required ServerType type,
-    required ServerCategory category,
-  }) async {
-    try {
-      // StorageService에서 저장된 토큰을 가져옵니다
-      final storage = await StorageService.initialize();
-      final token = await storage.getToken();
-
-      if (token == null) {
-        throw ApiException(message: '로그인이 필요합니다');
-      }
-
-      final response = await _dio.post(
-        '/servers',
-        data: {
-          'name': name.trim(),
-          'host': host.trim(),
-          'port': port,
-          'username': username.trim(),
-          'password': password,
-          'type': type.toJson(),
-          'category': category.toJson(),
-        },
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 401) {
-        throw ApiException(message: '인증이 필요합니다');
-      }
-
-      return Server.fromJson(response.data);
-    } catch (e) {
-      debugPrint('서버 추가 실패: $e');
       rethrow;
     }
   }
@@ -228,45 +265,6 @@ class ApiService {
       () => _dio.get('/servers/$serverId/status'), // /api/v1 제거
       (data) => Server.fromJson(data as Map<String, dynamic>),
     );
-  }
-
-  // 서버 연결 테스트
-  Future<void> testServerConnection({
-    required String host,
-    required int port,
-    required String username,
-    required String password,
-  }) async {
-    try {
-      final response = await _dio.post(
-        '/servers/test-connection',
-        data: {
-          'host': host,
-          'port': port,
-          'username': username,
-          'password': password,
-        },
-        options: Options(
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          validateStatus: (status) => status! < 500,
-        ),
-      );
-
-      if (response.statusCode == 401) {
-        throw ApiException(message: '인증 오류가 발생했습니다');
-      }
-
-      if (response.statusCode != 200) {
-        throw ApiException(
-            message: response.data?['message'] ?? '서버 연결 테스트 실패');
-      }
-    } catch (e) {
-      debugPrint('서버 연결 테스트 실패: $e');
-      rethrow;
-    }
   }
 
   /// 서버 상태에 대한 트렌드 데이터 조회

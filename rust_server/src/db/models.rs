@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
 use std::fmt::Display;
 use std::str::FromStr;
+use uuid::Uuid;
 
 // Common traits implementation macro
 macro_rules! impl_common_traits {
@@ -32,65 +33,32 @@ macro_rules! impl_common_traits {
                 }
             }
         }
-
-        impl From<&str> for $name {
-            fn from(s: &str) -> Self {
-                Self::from_str(s).unwrap_or_else(|e| panic!("{}", e))
-            }
-        }
-
-        impl From<String> for $name {
-            fn from(s: String) -> Self {
-                Self::from(s.as_str())
-            }
-        }
     };
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
 #[sqlx(type_name = "server_type")]
 #[sqlx(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum ServerType {
     Physical,
     Virtual,
-    Container
+    Container,
+    Linux
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
-#[sqlx(type_name = "alert_severity")]
-#[sqlx(rename_all = "lowercase")]
-pub enum AlertSeverity {
-    Info,
-    Warning,
-    Critical,
+impl Default for ServerType {
+    fn default() -> Self {
+        ServerType::Physical
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
-#[sqlx(type_name = "user_role")]
-#[sqlx(rename_all = "lowercase")]
-pub enum UserRole {
-    Admin,
-    User,
-    Viewer,
-}
-
-// Implement the common traits for each enum
+// ServerType에 대한 common traits 구현 (한 번만 적용)
 impl_common_traits!(ServerType, {
     Physical => "physical",
     Virtual => "virtual",
-    Container => "container"
-});
-
-impl_common_traits!(AlertSeverity, {
-    Info => "info",
-    Warning => "warning",
-    Critical => "critical"
-});
-
-impl_common_traits!(UserRole, {
-    Admin => "admin",
-    User => "user",
-    Viewer => "viewer"
+    Container => "container",
+    Linux => "linux"
 });
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -113,6 +81,60 @@ pub struct Server {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+impl Default for Server {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            name: String::new(),
+            hostname: String::new(),
+            ip_address: String::new(),
+            port: 0,
+            username: String::new(),
+            encrypted_password: String::new(),
+            location: "Unknown".to_string(),
+            description: None,
+            server_type: ServerType::default(),
+            is_online: false,
+            last_seen_at: None,
+            metadata: Some(serde_json::json!({})),
+            created_by: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }    
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
+#[sqlx(type_name = "alert_severity")]
+#[sqlx(rename_all = "lowercase")]
+pub enum AlertSeverity {
+    Info,
+    Warning,
+    Critical,
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
+#[sqlx(type_name = "user_role")]
+#[sqlx(rename_all = "lowercase")]
+pub enum UserRole {
+    Admin,
+    User,
+    Viewer,
+}
+
+// 다른 enum들에 대한 common traits 구현
+impl_common_traits!(AlertSeverity, {
+    Info => "info",
+    Warning => "warning",
+    Critical => "critical"
+});
+
+impl_common_traits!(UserRole, {
+    Admin => "admin",
+    User => "user",
+    Viewer => "viewer"
+});
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]
 pub struct MetricsSnapshot {
@@ -191,4 +213,22 @@ impl Default for User {
             last_login_at: None,
         }
     }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct RefreshToken {
+    pub id: String,
+    pub user_id: String,
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct UserSession {
+    pub id: String,
+    pub user_id: String,
+    pub device_info: Option<String>,
+    pub last_activity: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
 }

@@ -4,14 +4,15 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Enum types
 DO $$ BEGIN
-    CREATE TYPE server_type AS ENUM ('physical', 'virtual', 'container');
+    CREATE TYPE server_type AS ENUM ('physical', 'virtual', 'container', 'linux');
     CREATE TYPE alert_severity AS ENUM ('info', 'warning', 'critical');
     CREATE TYPE user_role AS ENUM ('admin', 'user', 'viewer');
     CREATE TYPE metric_type AS ENUM ('cpu', 'memory', 'disk', 'network');
     CREATE TYPE auth_provider AS ENUM ('email', 'google', 'apple', 'kakao', 'facebook');
     CREATE TYPE log_level AS ENUM ('debug', 'info', 'warning', 'alert', 'critical');
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
+EXCEPTION 
+    WHEN duplicate_object THEN 
+        ALTER TYPE server_type ADD VALUE IF NOT EXISTS 'linux';
 END $$;
 
 -- Users table
@@ -48,7 +49,7 @@ CREATE TABLE IF NOT EXISTS servers (
 );
 
 -- Add server connection index
-CREATE INDEX idx_servers_hostname_port ON servers(hostname, port);
+CREATE INDEX IF NOT EXISTS idx_servers_hostname_port ON servers(hostname, port);
 
 -- Metrics snapshots (수정됨)
 CREATE TABLE IF NOT EXISTS metrics_snapshots (
@@ -130,6 +131,7 @@ CREATE TABLE IF NOT EXISTS logs (
 CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
 CREATE INDEX IF NOT EXISTS idx_logs_server_id ON logs(server_id);
 CREATE INDEX IF NOT EXISTS idx_logs_component ON logs(component);
+
 
 DO $$ 
 BEGIN 
@@ -224,3 +226,65 @@ INSERT INTO users (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 ) ON CONFLICT (email) DO NOTHING;
+
+-- User sessions table for managing active sessions
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token TEXT NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    last_active_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_user_session_token UNIQUE (session_token)
+);
+
+-- Refresh tokens table for JWT refresh functionality
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL,
+    issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    replaced_by TEXT,
+    CONSTRAINT uk_refresh_token UNIQUE (token)
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked ON refresh_tokens(revoked_at) WHERE revoked_at IS NOT NULL;
+
+-- Add cleanup trigger for expired sessions
+CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM user_sessions WHERE expires_at < CURRENT_TIMESTAMP;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_cleanup_expired_sessions ON user_sessions;
+CREATE TRIGGER trigger_cleanup_expired_sessions
+    AFTER INSERT ON user_sessions
+    EXECUTE FUNCTION cleanup_expired_sessions();
+
+-- Add cleanup trigger for expired refresh tokens
+CREATE OR REPLACE FUNCTION cleanup_expired_refresh_tokens()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM refresh_tokens 
+    WHERE expires_at < CURRENT_TIMESTAMP 
+    OR revoked_at IS NOT NULL;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_cleanup_expired_refresh_tokens ON refresh_tokens;
+CREATE TRIGGER trigger_cleanup_expired_refresh_tokens
+    AFTER INSERT ON refresh_tokens
+    EXECUTE FUNCTION cleanup_expired_refresh_tokens();
