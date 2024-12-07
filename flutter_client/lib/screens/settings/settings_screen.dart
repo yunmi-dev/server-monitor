@@ -79,7 +79,8 @@ class SettingsScreen extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 30,
-                backgroundColor: const Color.fromARGB(255, 255, 37, 110),
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
                 child: Text(
                   auth.user?.name.substring(0, 1) ?? 'U',
                   style: const TextStyle(
@@ -195,12 +196,14 @@ class SettingsScreen extends StatelessWidget {
       ),
       children: [
         _buildSwitchTile(
+          context,
           title: '푸시 알림',
           subtitle: '푸시 알림 받기',
           value: settings.pushNotificationsEnabled,
           onChanged: settings.setPushNotifications,
         ),
         _buildSwitchTile(
+          context,
           title: '이메일 알림',
           subtitle: '이메일 알림 받기',
           value: settings.emailNotificationsEnabled,
@@ -345,7 +348,8 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSwitchTile({
+  Widget _buildSwitchTile(
+    BuildContext context, {
     required String title,
     required String subtitle,
     required bool value,
@@ -356,8 +360,9 @@ class SettingsScreen extends StatelessWidget {
       subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey)),
       value: value,
       onChanged: onChanged,
-      activeColor: const Color.fromARGB(255, 255, 37, 110),
-      inactiveTrackColor: Colors.grey.withOpacity(0.3),
+      activeColor: Theme.of(context).colorScheme.primary,
+      inactiveTrackColor:
+          Theme.of(context).colorScheme.surface.withOpacity(0.3),
     );
   }
 
