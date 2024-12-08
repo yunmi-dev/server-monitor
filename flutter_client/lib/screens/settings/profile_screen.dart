@@ -356,7 +356,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           if (!_isEditing) ...[
             const SizedBox(height: AppConstants.spacing),
-            _buildInfoRow('가입일', _formatDateTime(user.createdAt)),
+            _buildInfoRow(
+                '가입일', _formatDateTime(user.createdAt ?? DateTime.now())),
             _buildInfoRow(
               '마지막 로그인',
               user.lastLoginAt != null

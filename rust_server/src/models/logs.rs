@@ -3,10 +3,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use sqlx::postgres::PgHasArrayType;
-use sqlx::{Decode, Encode, Postgres, Type};
 use sqlx::types::JsonValue;
-use sqlx::postgres::PgArgumentBuffer;
-use sqlx::encode::IsNull;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
@@ -71,50 +68,69 @@ impl PgHasArrayType for LogLevel {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LogMetadata(pub Option<HashMap<String, JsonValue>>);
-
-impl Type<Postgres> for LogMetadata {
-    fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("jsonb")
-    }
-}
-
-impl<'r> Decode<'r, Postgres> for LogMetadata {
-    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let json = <JsonValue as Decode<'r, Postgres>>::decode(value)?;
-        if json.is_null() {
-            Ok(LogMetadata(None))
-        } else {
-            let map = serde_json::from_value(json)?;
-            Ok(LogMetadata(Some(map)))
-        }
-    }
-}
-
-impl Encode<'_, Postgres> for LogMetadata {
-    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
-        match &self.0 {
-            Some(map) => {
-                let json = serde_json::to_value(map).unwrap_or(JsonValue::Null);
-                <JsonValue as Encode<Postgres>>::encode_by_ref(&json, buf)
-            }
-            None => <JsonValue as Encode<Postgres>>::encode_by_ref(&JsonValue::Null, buf),
-        }
-    }
+#[derive(Debug, Serialize, Deserialize, Default)]  
+pub struct LogMetadata {
+    pub context: Option<String>,
+    pub details: Option<JsonValue>,
 }
 
 impl From<JsonValue> for LogMetadata {
     fn from(json: JsonValue) -> Self {
         if json.is_null() {
-            LogMetadata(None)
-        } else {
-            LogMetadata(Some(serde_json::from_value(json).unwrap_or_default()))
+            return Self::default();
+        }
+
+        match json {
+            JsonValue::Object(map) => LogMetadata {
+                context: map.get("context").and_then(|v| v.as_str()).map(String::from),
+                details: Some(JsonValue::Object(map)),
+            },
+            _ => LogMetadata {
+                context: None,
+                details: Some(json),
+            },
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl From<Option<JsonValue>> for LogMetadata {
+    fn from(json_opt: Option<JsonValue>) -> Self {
+        match json_opt {
+            Some(json) => {
+                if json.is_null() {
+                    Self::default()
+                } else {
+                    match json {
+                        JsonValue::Object(map) => LogMetadata {
+                            context: map.get("context").and_then(|v| v.as_str()).map(String::from),
+                            details: Some(JsonValue::Object(map)),
+                        },
+                        _ => LogMetadata {
+                            context: None,
+                            details: Some(json),
+                        },
+                    }
+                }
+            },
+            None => Self::default(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateLogRequest {
+    pub level: LogLevel,
+    pub message: String,
+    pub component: String,
+    pub server_id: Option<String>,
+    #[serde(default)]
+    pub metadata: Option<HashMap<String, JsonValue>>,
+    pub stack_trace: Option<String>,
+    pub source_location: Option<String>,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LogEntry {
     pub id: String,
     pub level: LogLevel,
@@ -126,19 +142,6 @@ pub struct LogEntry {
     pub stack_trace: Option<String>,
     pub source_location: Option<String>,
     pub correlation_id: Option<String>,
-    pub message_tsv: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LogFilter {
-    pub levels: Option<Vec<LogLevel>>,
-    pub from: Option<DateTime<Utc>>,
-    pub to: Option<DateTime<Utc>>,
-    pub server_id: Option<String>,
-    pub component: Option<String>,
-    pub search: Option<String>,
-    pub limit: Option<i64>,
-    pub offset: Option<i64>,
 }
 
 impl LogEntry {
@@ -155,16 +158,20 @@ impl LogEntry {
             component,
             server_id,
             timestamp: Utc::now(),
-            metadata: LogMetadata(None),
+            metadata: LogMetadata::default(),  // 수정된 부분
             stack_trace: None,
             source_location: None,
             correlation_id: None,
-            message_tsv: None,
         }
     }
 
     pub fn with_metadata(mut self, metadata: HashMap<String, serde_json::Value>) -> Self {
-        self.metadata = LogMetadata(Some(metadata));
+        self.metadata = LogMetadata {
+            context: None,
+            details: Some(serde_json::Value::Object(
+                metadata.into_iter().collect()
+            )),
+        };
         self
     }
 
@@ -182,6 +189,18 @@ impl LogEntry {
         self.correlation_id = Some(correlation_id);
         self
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogFilter {
+    pub levels: Option<Vec<LogLevel>>,
+    pub from: Option<DateTime<Utc>>,
+    pub to: Option<DateTime<Utc>>,
+    pub server_id: Option<String>,
+    pub component: Option<String>,
+    pub search: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
 }
 
 impl LogFilter {

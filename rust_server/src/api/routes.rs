@@ -1,6 +1,5 @@
 // src/api/routes.rs
 use actix_web::web;
-use crate::db::repository::Repository;  // Repository import 추가
 use crate::auth::handlers::*;
 use crate::api::health::health_check;
 use crate::api::servers::{
@@ -10,12 +9,15 @@ use crate::api::servers::{
 use crate::api::logs::{create_log, get_logs, get_log, delete_logs};
 use crate::api::alerts::{list_alerts, acknowledge_alert};
 use crate::websocket::ws_index;
+use crate::auth::middleware::AuthMiddleware; 
+
+
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
-    cfg.app_data(web::JsonConfig::default().limit(4096))  // JSON 설정 추가
+    cfg.app_data(web::JsonConfig::default().limit(4096))
        .service(
         web::scope("/api/v1")
-            .route("/ws", web::get().to(ws_index))  
+            .route("/ws", web::get().to(ws_index))
             .service(
                 web::scope("/auth")
                     .service(login)
@@ -25,6 +27,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route("/health", web::get().to(health_check))
             .service(
                 web::scope("/servers")
+                    .wrap(AuthMiddleware)  // 인증 미들웨어 적용
                     .route("/test-connection", web::post().to(test_connection))
                     .route("", web::post().to(create_server))
                     .route("", web::get().to(get_servers))

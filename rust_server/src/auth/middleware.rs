@@ -43,7 +43,6 @@ where
         }))
     }
 }
-
 pub struct AuthMiddlewareService<S> {
     service: Rc<S>,
 }

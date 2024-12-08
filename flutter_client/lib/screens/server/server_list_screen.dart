@@ -112,95 +112,56 @@ class _ServerListScreenState extends State<ServerListScreen> {
                     ),
                   ),
                 ),
-                SliverFillRemaining(
-                  child: Consumer<ServerProvider>(
-                    builder: (context, provider, child) {
-                      if (provider.isLoading) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+                SliverFillRemaining(child: Consumer<ServerProvider>(
+                  builder: (context, provider, child) {
+                    debugPrint(
+                        'Consumer 호출됨: isLoading=${provider.isLoading}, servers=${provider.servers.length}');
 
-                      if (provider.error != null) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 48,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                provider.error!,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () {
-                                  // 재시도 로직
-                                },
-                                child: const Text('다시 시도'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      final servers = _searchController.text.isEmpty &&
-                              _selectedFilters.isEmpty
-                          ? provider.servers
-                          : _filteredServers;
-
-                      if (servers.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.dns_outlined,
-                                size: 48,
-                                color: Colors.grey[600],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _searchController.text.isNotEmpty ||
-                                        _selectedFilters.isNotEmpty
-                                    ? '검색 결과가 없습니다'
-                                    : '서버가 없습니다\n새로운 서버를 추가해보세요',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return RefreshIndicator(
-                        onRefresh: () async {
-                          // 서버 목록 새로고침 로직
-                        },
-                        child: ListView.builder(
-                          itemCount: servers.length,
-                          itemBuilder: (context, index) {
-                            final server = servers[index];
-                            return ServerListItem(
-                              server: server,
-                              onTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/server/details',
-                                  arguments: {'server': server},
-                                );
-                              },
-                            );
-                          },
+                    if (provider.servers.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.dns_outlined,
+                              size: 48,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '서버가 없습니다\n새로운 서버를 추가해보세요',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
                         ),
                       );
-                    },
-                  ),
-                ),
+                    }
+
+                    // 검색어가 있을 때만 필터링
+                    final servers = _searchController.text.isNotEmpty
+                        ? provider.servers
+                            .where((server) => server.name
+                                .toLowerCase()
+                                .contains(_searchController.text.toLowerCase()))
+                            .toList()
+                        : provider.servers;
+
+                    return ListView.builder(
+                      itemCount: servers.length,
+                      itemBuilder: (context, index) {
+                        return ServerListItem(
+                          server: servers[index],
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            '/server/details',
+                            arguments: {'server': servers[index]},
+                          ),
+                        );
+                      },
+                    );
+                  },
+                )),
               ],
             ),
             Align(

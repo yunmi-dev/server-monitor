@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS users (
     role user_role NOT NULL DEFAULT 'user',
     active BOOLEAN NOT NULL DEFAULT true,
     last_login_at TIMESTAMPTZ,
+    provider auth_provider NOT NULL DEFAULT 'email',
+    profile_image_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -33,11 +35,11 @@ CREATE TABLE IF NOT EXISTS servers (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     hostname VARCHAR(255) NOT NULL UNIQUE,
-    ip_address VARCHAR(45) NOT NULL,
+    ip_address VARCHAR(45),
     port INTEGER NOT NULL,
     username VARCHAR(255) NOT NULL,
     encrypted_password TEXT NOT NULL,
-    location VARCHAR(255) NOT NULL,
+    location VARCHAR(255) DEFAULT 'Unknown',
     description TEXT,
     server_type server_type NOT NULL,
     is_online BOOLEAN NOT NULL DEFAULT false,
@@ -51,7 +53,7 @@ CREATE TABLE IF NOT EXISTS servers (
 -- Add server connection index
 CREATE INDEX IF NOT EXISTS idx_servers_hostname_port ON servers(hostname, port);
 
--- Metrics snapshots (수정됨)
+-- Metrics snapshots
 CREATE TABLE IF NOT EXISTS metrics_snapshots (
     id BIGSERIAL PRIMARY KEY,
     server_id VARCHAR(36) NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
@@ -67,6 +69,10 @@ CREATE TABLE IF NOT EXISTS metrics_snapshots (
     CONSTRAINT metrics_memory_usage_check CHECK (memory_usage >= 0 AND memory_usage <= 100),
     CONSTRAINT metrics_disk_usage_check CHECK (disk_usage >= 0 AND disk_usage <= 100)
 );
+
+-- Create metrics timestamps index
+CREATE INDEX IF NOT EXISTS idx_metrics_server_time ON metrics_snapshots(server_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_metrics_server_timestamp ON metrics_snapshots(server_id, timestamp DESC);
 
 -- Alerts table
 CREATE TABLE IF NOT EXISTS alerts (
@@ -110,11 +116,7 @@ CREATE TABLE IF NOT EXISTS maintenance_windows (
     CONSTRAINT valid_timerange CHECK (start_time < end_time)
 );
 
-ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS provider auth_provider NOT NULL DEFAULT 'email',
-    ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
-
-
+-- Logs table
 CREATE TABLE IF NOT EXISTS logs (
     id TEXT PRIMARY KEY,
     level log_level NOT NULL,
@@ -128,11 +130,12 @@ CREATE TABLE IF NOT EXISTS logs (
     correlation_id TEXT
 );
 
+-- Add log indices
 CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
 CREATE INDEX IF NOT EXISTS idx_logs_server_id ON logs(server_id);
 CREATE INDEX IF NOT EXISTS idx_logs_component ON logs(component);
 
-
+-- Add text search for logs
 DO $$ 
 BEGIN 
     IF NOT EXISTS (
@@ -169,14 +172,43 @@ CREATE TABLE IF NOT EXISTS token_blacklist (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_metrics_server_timestamp ON metrics_snapshots(server_id, timestamp DESC);
+-- User sessions table
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token TEXT NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    last_active_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_user_session_token UNIQUE (session_token)
+);
+
+-- Refresh tokens table
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL,
+    issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    replaced_by TEXT,
+    CONSTRAINT uk_refresh_token UNIQUE (token)
+);
+
+-- Additional indexes
 CREATE INDEX IF NOT EXISTS idx_alerts_server_created ON alerts(server_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_alerts_unacknowledged ON alerts(acknowledged_at) WHERE acknowledged_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_maintenance_timerange ON maintenance_windows(server_id, start_time, end_time);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked ON refresh_tokens(revoked_at) WHERE revoked_at IS NOT NULL;
 
 -- Update timestamp trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -212,54 +244,7 @@ CREATE TRIGGER update_maintenance_windows_modtime
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Insert default admin user if not exists
-INSERT INTO users (
-    id, email, password_hash, name, role, active, created_at, updated_at
-) VALUES (
-    uuid_generate_v4(),
-    'admin@example.com',
-    -- Default password: 'admin123' (change in production)
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj6f.CbP0pjm',
-    'System Admin',
-    'admin',
-    true,
-    CURRENT_TIMESTAMP,
-    CURRENT_TIMESTAMP
-) ON CONFLICT (email) DO NOTHING;
-
--- User sessions table for managing active sessions
-CREATE TABLE IF NOT EXISTS user_sessions (
-    id BIGSERIAL PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_token TEXT NOT NULL,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    last_active_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_user_session_token UNIQUE (session_token)
-);
-
--- Refresh tokens table for JWT refresh functionality
-CREATE TABLE IF NOT EXISTS refresh_tokens (
-    id BIGSERIAL PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token TEXT NOT NULL,
-    issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMPTZ NOT NULL,
-    revoked_at TIMESTAMPTZ,
-    replaced_by TEXT,
-    CONSTRAINT uk_refresh_token UNIQUE (token)
-);
-
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, expires_at);
-CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id, expires_at);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked ON refresh_tokens(revoked_at) WHERE revoked_at IS NOT NULL;
-
--- Add cleanup trigger for expired sessions
+-- Cleanup triggers
 CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -273,7 +258,6 @@ CREATE TRIGGER trigger_cleanup_expired_sessions
     AFTER INSERT ON user_sessions
     EXECUTE FUNCTION cleanup_expired_sessions();
 
--- Add cleanup trigger for expired refresh tokens
 CREATE OR REPLACE FUNCTION cleanup_expired_refresh_tokens()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -288,3 +272,18 @@ DROP TRIGGER IF EXISTS trigger_cleanup_expired_refresh_tokens ON refresh_tokens;
 CREATE TRIGGER trigger_cleanup_expired_refresh_tokens
     AFTER INSERT ON refresh_tokens
     EXECUTE FUNCTION cleanup_expired_refresh_tokens();
+
+-- Insert default admin user if not exists
+INSERT INTO users (
+    id, email, password_hash, name, role, active, created_at, updated_at
+) VALUES (
+    uuid_generate_v4(),
+    'admin@example.com',
+    -- Default password: 'admin123' (change in production)
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj6f.CbP0pjm',
+    'System Admin',
+    'admin',
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+) ON CONFLICT (email) DO NOTHING;

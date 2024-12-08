@@ -8,15 +8,16 @@ import 'package:flutter_client/models/time_series_data.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_client/models/time_range.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_client/models/api_response.dart';
-import 'dart:async';
 import 'package:flutter_client/services/websocket_service.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/models/server_metrics.dart';
 import 'package:flutter_client/services/storage_service.dart';
-// import 'package:dio/dio.dart';
+import 'dart:async';
+import 'package:dio/dio.dart';
 
 class ServerProvider with ChangeNotifier {
+  static const Duration statusRefreshInterval = Duration(seconds: 5);
+
   final ApiService _apiService;
   final WebSocketService _webSocketService;
 
@@ -110,13 +111,22 @@ class ServerProvider with ChangeNotifier {
   }
 
   // 서버 모니터링 시작
+
   void startMonitoring(String serverId) {
-    _monitoringTimers[serverId]?.cancel();
-    _monitoringTimers[serverId] = Timer.periodic(
-      AppConstants.defaultRefreshInterval,
-      (_) => refreshServerStatus(serverId),
-    );
-    _webSocketService.subscribeToServerMetrics(serverId);
+    // 이미 모니터링 중인 경우 기존 타이머 취소
+    stopMonitoring(serverId);
+
+    // 초기 딜레이 추가
+    Future.delayed(const Duration(seconds: 1), () {
+      // 새로운 타이머 시작
+      _monitoringTimers[serverId] = Timer.periodic(
+        statusRefreshInterval,
+        (_) => refreshServerStatus(serverId),
+      );
+
+      // 웹소켓 구독 시작
+      _webSocketService.subscribeToServerMetrics(serverId);
+    });
   }
 
   // 서버 모니터링 중지
@@ -145,7 +155,7 @@ class ServerProvider with ChangeNotifier {
         password: password,
       );
 
-      // 2. 토큰 리프레시
+      // 2. 토큰 리프레시 시도
       try {
         final response = await _apiService.request(
           path: '/auth/login',
@@ -157,37 +167,18 @@ class ServerProvider with ChangeNotifier {
         await storage.setToken(response.data['token']);
         await storage.setRefreshToken(response.data['refresh_token']);
 
-        // 3. 서버 추가 재시도
-        final server = await _apiService.addServer(
-          name: name,
-          host: host,
-          port: port,
-          username: username,
-          password: password,
-          type: type,
-          category: category,
-        );
-
-        _servers.add(server);
-        startMonitoring(server.id);
-        notifyListeners();
+        // 3. 서버 추가 시도
+        await _tryAddServer(
+            name, host, port, username, password, type, category);
       } catch (authError) {
         // 인증 실패시 기존 토큰으로 시도
-        final server = await _apiService.addServer(
-          name: name,
-          host: host,
-          port: port,
-          username: username,
-          password: password,
-          type: type,
-          category: category,
-        );
-
-        _servers.add(server);
-        startMonitoring(server.id);
-        notifyListeners();
+        await _tryAddServer(
+            name, host, port, username, password, type, category);
       }
     } catch (e) {
+      if (e is DioException && e.response?.statusCode == 409) {
+        throw '이미 등록된 서버입니다'; // 사용자 친화적 메시지
+      }
       debugPrint('Server add error: $e');
       rethrow;
     } finally {
@@ -195,21 +186,52 @@ class ServerProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> _checkAndRefreshToken() async {
+  Future<void> _tryAddServer(
+    String name,
+    String host,
+    int port,
+    String username,
+    String password,
+    ServerType type,
+    ServerCategory category,
+  ) async {
     try {
-      final storage = await StorageService.initialize();
-      final token = await storage.getToken();
-      if (token == null) return false;
-
-      final response = await _apiService.request(
-        path: '/auth/me',
-        method: 'GET',
+      final server = await _apiService.addServer(
+        name: name,
+        host: host,
+        port: port,
+        username: username,
+        password: password,
+        type: type,
+        category: category,
       );
-      return response.statusCode == 200;
+
+      _servers.add(server);
+      startMonitoring(server.id);
+      notifyListeners();
     } catch (e) {
-      return false;
+      if (e is DioException && e.response?.statusCode == 409) {
+        throw '이미 등록된 서버입니다';
+      }
+      rethrow;
     }
   }
+
+  // Future<bool> _checkAndRefreshToken() async {
+  //   try {
+  //     final storage = await StorageService.initialize();
+  //     final token = await storage.getToken();
+  //     if (token == null) return false;
+
+  //     final response = await _apiService.request(
+  //       path: '/auth/me',
+  //       method: 'GET',
+  //     );
+  //     return response.statusCode == 200;
+  //   } catch (e) {
+  //     return false;
+  //   }
+  // }
 
   // 종료 처리
   @override
@@ -243,26 +265,58 @@ class ServerProvider with ChangeNotifier {
     }
   }
 
+  // Future<void> loadServers() async {
+  //   try {
+  //     _isLoading = true;
+  //     _error = null;
+  //     notifyListeners();
+
+  //     debugPrint('서버 목록 로딩 시작');
+  //     _servers = await _apiService.getServers();
+  //     debugPrint('서버 목록 로딩 완료: ${_servers.length}개');
+
+  //     // 각 서버에 대해 한 번만 모니터링 시작
+  //     for (final server in _servers) {
+  //       // 이미 모니터링 중인 서버는 건너뛰기
+  //       if (!_monitoringTimers.containsKey(server.id)) {
+  //         startMonitoring(server.id);
+  //       }
+  //     }
+
+  //     _isLoading = false;
+  //     notifyListeners();
+  //   } catch (e) {
+  //     debugPrint('서버 목록 로딩 실패: $e');
+  //     _error = ErrorUtils.getErrorMessage(e);
+  //     _isLoading = false;
+  //     notifyListeners();
+  //   }
+  // }
+
+  // TODO debug
   Future<void> loadServers() async {
     try {
       _isLoading = true;
-      _error = null;
       notifyListeners();
 
-      debugPrint('서버 목록 로딩 시작');
+      debugPrint('서버 목록 로딩 시작: 상태 = $_isLoading');
       _servers = await _apiService.getServers();
-      debugPrint('서버 목록 로딩 완료: ${_servers.length}개');
+      debugPrint('서버 데이터: ${_servers.map((s) => s.toJson())}');
 
+      for (final server in _servers) {
+        debugPrint('서버 처리: ${server.id}, 타입: ${server.runtimeType}');
+        if (!_monitoringTimers.containsKey(server.id)) {
+          startMonitoring(server.id);
+        }
+      }
+
+      _isLoading = false;
       notifyListeners();
-    } on ApiException catch (e) {
-      debugPrint('API 예외 발생: ${e.message}');
-      _error = e.message;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('예상치 못한 예외 발생: $e');
-      _error = '서버 목록을 불러오는데 실패했습니다: $e';
-      notifyListeners();
-    } finally {
+      debugPrint('서버 목록 로딩 완료: 상태 = $_isLoading');
+    } catch (e, stackTrace) {
+      debugPrint('서버 목록 로딩 실패: $e');
+      debugPrint('스택 트레이스: $stackTrace');
+      _error = ErrorUtils.getErrorMessage(e);
       _isLoading = false;
       notifyListeners();
     }
@@ -327,15 +381,19 @@ class ServerProvider with ChangeNotifier {
 
   Future<void> refreshServerStatus(String serverId) async {
     try {
-      final updatedServer = await _apiService.getServerStatus(serverId);
-      final index = _servers.indexWhere((s) => s.id == serverId);
-      if (index != -1) {
-        _servers[index] = updatedServer;
-        notifyListeners();
+      final response = await _apiService.getServerStatus(serverId);
+      if (response != null) {
+        // 응답이 있을 때만 업데이트
+        final index = _servers.indexWhere((s) => s.id == serverId);
+        if (index != -1) {
+          _servers[index] = response;
+          notifyListeners();
+        }
       }
     } catch (e) {
-      debugPrint('Error refreshing server status: $e');
-      _error = ErrorUtils.getErrorMessage(e);
+      debugPrint('Status refresh failed for server $serverId: $e');
+      // 에러가 발생하면 해당 서버의 모니터링만 중지
+      stopMonitoring(serverId);
     }
   }
 

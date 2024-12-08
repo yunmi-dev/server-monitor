@@ -6,8 +6,9 @@ import 'package:flutter_client/services/storage_service.dart';
 import 'package:flutter_client/models/user.dart';
 import 'package:flutter_client/utils/error_utils.dart';
 import 'package:flutter_client/utils/logger.dart';
-import 'package:flutter_client/models/auth_result.dart';
-import 'package:flutter_client/models/auth_result.dart' as models;
+import 'package:flutter_client/providers/server_provider.dart';
+import 'package:flutter_client/services/navigation_service.dart';
+import 'package:provider/provider.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService;
@@ -43,14 +44,25 @@ class AuthProvider with ChangeNotifier {
       final refreshTokenStr = await _storageService.getRefreshToken();
 
       if (token != null && refreshTokenStr != null) {
-        _user = await _authService.getCurrentUser();
+        try {
+          _user = await _authService.getCurrentUser();
+        } catch (e) {
+          logger.error('getCurrentUser failed: $e');
+          // getCurrentUser 실패해도 계속 진행
+        }
         _startSessionTimer();
         _updateLastActivityTime();
+      }
+
+      // 여기가 중요: 인증 성공 여부와 관계없이 서버 목록 로드 시도
+      final context = NavigationService.navigatorKey.currentContext;
+      if (context != null) {
+        await Provider.of<ServerProvider>(context, listen: false).loadServers();
       }
     } catch (e) {
       logger.error('Auth initialization failed: $e');
       _error = ErrorUtils.getErrorMessage(e);
-      await _handleLogout();
+      // _handleLogout() 호출 제거 - 로그아웃하지 않고 계속 진행
     } finally {
       _isInitializing = false;
       notifyListeners();
@@ -227,6 +239,16 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
 
       await action();
+
+      // 로그인 성공 후 서버 목록 로드
+      if (isAuthenticated) {
+        // BuildContext를 사용할 수 있는 NavigationService의 navigatorKey 사용
+        final context = NavigationService.navigatorKey.currentContext;
+        if (context != null) {
+          await Provider.of<ServerProvider>(context, listen: false)
+              .loadServers();
+        }
+      }
     } catch (e) {
       logger.error('Auth action failed: $e');
       _error = ErrorUtils.getErrorMessage(e);

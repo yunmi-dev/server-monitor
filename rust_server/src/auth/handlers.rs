@@ -76,7 +76,7 @@ pub async fn register(
 pub async fn social_login(
     req: web::Json<SocialLoginRequest>,
     repo: web::Data<Repository>,
-    http_client: web::Data<Client>,
+    // http_client: web::Data<Client>,
     config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
     // 클라이언트가 보낸 이메일 사용
@@ -209,9 +209,9 @@ async fn handle_apple_login(
 }
 
 async fn handle_facebook_login(
-    token: &str,
+    // token: &str,
     repo: web::Data<Repository>,
-    http_client: web::Data<Client>,
+    // http_client: web::Data<Client>,
     config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
     // 클라이언트 데이터에서 이메일을 직접 사용하도록 변경
@@ -296,9 +296,20 @@ fn generate_tokens(user: &User, config: &ServerConfig) -> Result<(String, String
 
     let access_claims = Claims {
         sub: user.id.clone(),
+        email: user.email.clone(),  // 추가
+        role: user.role.clone(),    // 추가
         exp: now + config.auth.access_token_expire,
         iat: now,
         token_type: "access".to_string(),
+    };
+
+    let refresh_claims = Claims {
+        sub: user.id.clone(),
+        email: user.email.clone(),  // 추가
+        role: user.role.clone(),    // 추가
+        exp: now + config.auth.refresh_token_expire,
+        iat: now,
+        token_type: "refresh".to_string(),
     };
 
     let access_token = encode(
@@ -307,13 +318,6 @@ fn generate_tokens(user: &User, config: &ServerConfig) -> Result<(String, String
         &EncodingKey::from_secret(config.auth.jwt_secret.as_bytes()),
     )
     .map_err(|e| AppError::InternalError(format!("Access token generation failed: {}", e)))?;
-
-    let refresh_claims = Claims {
-        sub: user.id.clone(),
-        exp: now + config.auth.refresh_token_expire,
-        iat: now,
-        token_type: "refresh".to_string(),
-    };
 
     let refresh_token = encode(
         &Header::default(),

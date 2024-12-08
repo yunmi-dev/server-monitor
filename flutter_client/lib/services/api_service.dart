@@ -259,12 +259,46 @@ class ApiService {
     );
   }
 
-  // 서버 상태 조회
+// 서버 상태 조회
   Future<Server> getServerStatus(String serverId) async {
-    return _handleRequest<Server>(
-      () => _dio.get('/servers/$serverId/status'), // /api/v1 제거
-      (data) => Server.fromJson(data as Map<String, dynamic>),
-    );
+    try {
+      final response = await _dio.get('/servers/$serverId/status');
+      if (response.statusCode != 200) {
+        // 상태 조회 실패시 기본값 반환
+        return Server(
+            id: serverId,
+            name: "",
+            status: ServerStatus.offline,
+            resources: const ResourceUsage(
+                cpu: 0.0,
+                memory: 0.0,
+                disk: 0.0,
+                network: "0 B/s",
+                history: [],
+                lastUpdated: null),
+            uptime: "0s",
+            processes: [],
+            recentLogs: []);
+      }
+      return Server.fromJson(response.data);
+    } catch (e) {
+      debugPrint('서버 상태 조회 실패: $e');
+      // 오류 발생시 기본값 반환
+      return Server(
+          id: serverId,
+          name: "",
+          status: ServerStatus.offline,
+          resources: const ResourceUsage(
+              cpu: 0.0,
+              memory: 0.0,
+              disk: 0.0,
+              network: "0 B/s",
+              history: [],
+              lastUpdated: null),
+          uptime: "0s",
+          processes: [],
+          recentLogs: []);
+    }
   }
 
   /// 서버 상태에 대한 트렌드 데이터 조회

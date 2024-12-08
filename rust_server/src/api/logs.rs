@@ -2,47 +2,36 @@
 use actix_web::{web, HttpResponse, Result};
 use crate::{
     db::repository::Repository,
-    models::logs::{LogEntry, LogFilter, LogLevel, LogMetadata},
+    models::logs::{CreateLogRequest, LogEntry, LogFilter, LogMetadata},
     error::AppError,
     api::response::ApiResponse,
 };
-use serde::Deserialize;
-use std::collections::HashMap;
-
-#[derive(Deserialize)]
-pub struct CreateLogRequest {
-    pub level: LogLevel,
-    pub message: String,
-    pub component: String,
-    pub server_id: Option<String>,
-    #[serde(default)]
-    pub metadata: Option<HashMap<String, serde_json::Value>>,
-    pub stack_trace: Option<String>,
-    pub source_location: Option<String>,
-}
+use chrono::Utc;
 
 pub async fn create_log(
     repo: web::Data<Repository>,
-    log: web::Json<CreateLogRequest>,
+    request: web::Json<CreateLogRequest>,
 ) -> Result<HttpResponse, AppError> {
-    let log_entry = LogEntry {
+    let log = LogEntry {
         id: uuid::Uuid::new_v4().to_string(),
-        level: log.level.clone(),
-        message: log.message.clone(),
-        component: log.component.clone(),
-        server_id: log.server_id.clone(),
-        timestamp: chrono::Utc::now(),
-        metadata: LogMetadata(log.metadata.clone()), // LogMetadata로 래핑
-        stack_trace: log.stack_trace.clone(),
-        source_location: log.source_location.clone(),
+        level: request.level.clone(),
+        message: request.message.clone(),
+        component: request.component.clone(),
+        server_id: request.server_id.clone(),
+        timestamp: Utc::now(),
+        metadata: LogMetadata {
+            context: None,
+            details: request.metadata.clone().map(|m| serde_json::to_value(m).unwrap_or_default()),
+        },
+        stack_trace: request.stack_trace.clone(),
+        source_location: request.source_location.clone(),
         correlation_id: None,
-        message_tsv: None,  // message_tsv 필드 추가
     };
 
-    let result = repo.create_log(log_entry).await
-        .map_err(|e| AppError::InternalError(e.to_string()))?;
-    
-    Ok(ApiResponse::success(result))
+    match repo.create_log(log).await {
+        Ok(created_log) => Ok(ApiResponse::success(created_log)),
+        Err(e) => Ok(ApiResponse::<()>::error("database_error", &e.to_string())),
+    }
 }
 
 pub async fn get_logs(

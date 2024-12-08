@@ -1,6 +1,10 @@
 // src/auth/types.rs
 use serde::{Deserialize, Serialize};
 use crate::db::models::{UserRole, AuthProvider};
+use actix_web::{FromRequest, HttpRequest, dev::Payload, Error, HttpMessage};
+use std::future::{ready, Ready};
+use actix_web::error::ErrorUnauthorized;
+use crate::auth::jwt::Claims;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginRequest {
@@ -50,5 +54,37 @@ impl From<crate::db::models::User> for UserResponse {
             provider: user.provider,
             profile_image_url: user.profile_image_url,
         }
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct AuthenticatedUser {
+    pub id: String,
+    pub email: String,
+    pub role: UserRole,
+}
+
+impl From<Claims> for AuthenticatedUser {
+    fn from(claims: Claims) -> Self {
+        Self {
+            id: claims.sub,
+            email: claims.email,
+            role: claims.role,
+        }
+    }
+}
+
+impl FromRequest for AuthenticatedUser {
+    type Error = Error;
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+        ready(
+            req.extensions()
+                .get::<Claims>()
+                .map(|claims| claims.clone().into())
+                .ok_or_else(|| ErrorUnauthorized("Authentication required"))
+        )
     }
 }

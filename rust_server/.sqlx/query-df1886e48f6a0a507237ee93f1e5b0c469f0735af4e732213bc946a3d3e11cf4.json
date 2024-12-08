@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT \n                id, server_id, cpu_usage, memory_usage, disk_usage,\n                network_rx, network_tx, processes as \"processes: JsonValue\",\n                timestamp\n            FROM metrics_snapshots\n            WHERE server_id = $1 AND timestamp BETWEEN $2 AND $3\n            ORDER BY timestamp DESC\n            ",
+  "query": "\n            SELECT \n                id,\n                server_id,\n                cpu_usage,\n                memory_usage,\n                disk_usage,\n                network_rx,\n                network_tx,\n                processes,\n                timestamp\n            FROM metrics_snapshots\n            WHERE server_id = $1 \n            AND timestamp BETWEEN $2 AND $3\n            ORDER BY timestamp ASC\n            ",
   "describe": {
     "columns": [
       {
@@ -40,7 +40,7 @@
       },
       {
         "ordinal": 7,
-        "name": "processes: JsonValue",
+        "name": "processes",
         "type_info": "Jsonb"
       },
       {
@@ -68,5 +68,5 @@
       false
     ]
   },
-  "hash": "946053649ba7bc05d2500724d75c94f0ff8ef43e88ad17e6e0ced8fd9597f303"
+  "hash": "df1886e48f6a0a507237ee93f1e5b0c469f0735af4e732213bc946a3d3e11cf4"
 }

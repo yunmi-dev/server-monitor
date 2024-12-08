@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use std::iter::Iterator;
 use sysinfo::DiskExt;
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, Default)]
 pub struct SystemMetrics {
     pub cpu_usage: f32,
     pub memory_usage: f32,
@@ -17,7 +17,7 @@ pub struct SystemMetrics {
     pub processes: Vec<ProcessInfo>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, Default)]
 pub struct ProcessInfo {
     pub pid: u32,
     pub name: String,

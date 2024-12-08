@@ -6,6 +6,7 @@ use crate::models::logs::{LogEntry, LogFilter, LogLevel, LogMetadata};
 use chrono::{DateTime, Utc};
 use sqlx::types::JsonValue;
 use sqlx::{Row, QueryBuilder};
+use tracing::debug;
 //use std::str::FromStr;
 
 #[derive(Clone)]
@@ -19,6 +20,7 @@ impl Repository {
     }
 
     pub async fn create_server(&self, server: Server) -> Result<Server> {
+        debug!("Creating server with data: {:?}", server);  // 추가
         let result = sqlx::query_as!(
             Server,
             r#"
@@ -54,6 +56,7 @@ impl Repository {
         .fetch_one(&self.pool)
         .await?;
     
+        debug!("Server created: {:?}", result);
         Ok(result)
     }
     
@@ -87,12 +90,52 @@ impl Repository {
                 server_type as "server_type: ServerType",
                 is_online, last_seen_at, metadata, created_by, created_at, updated_at
             FROM servers 
+            ORDER BY created_at DESC
             "#
         )
         .fetch_all(&self.pool)
         .await?;
 
         Ok(results)
+    }
+
+    pub async fn list_servers_by_user(&self, user_id: &str) -> Result<Vec<Server>> {
+        Ok(sqlx::query_as!(
+            Server,
+            r#"
+            SELECT 
+                id, name, hostname, ip_address, port, username, encrypted_password,
+                location, description,
+                server_type as "server_type: ServerType",
+                is_online, last_seen_at, metadata, created_by, created_at, updated_at
+            FROM servers 
+            WHERE created_by = $1
+            ORDER BY created_at DESC
+            "#,
+            user_id
+        )
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    pub async fn get_server_by_hostname(&self, hostname: &str) -> Result<Option<Server>> {
+        let result = sqlx::query_as!(
+            Server,
+            r#"
+            SELECT 
+                id, name, hostname, ip_address, port, username, encrypted_password,
+                location, description,
+                server_type as "server_type: ServerType",
+                is_online, last_seen_at, metadata, created_by, created_at, updated_at
+            FROM servers 
+            WHERE LOWER(hostname) = LOWER($1)
+            "#,
+            hostname
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(result)
     }
 
     pub async fn delete_server(&self, id: &str) -> Result<()> {
@@ -148,22 +191,68 @@ impl Repository {
         Ok(result.id)
     }
 
+    pub async fn get_recent_server_logs(&self, server_id: &str, limit: i64) -> Result<Vec<LogEntry>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT 
+                id,
+                level as "level!: LogLevel",
+                message,
+                component,
+                server_id,
+                timestamp,
+                metadata as "metadata?: JsonValue",
+                stack_trace,
+                source_location,
+                correlation_id
+            FROM logs 
+            WHERE server_id = $1 
+            ORDER BY timestamp DESC 
+            LIMIT $2
+            "#,
+            server_id,
+            limit
+        )
+        .fetch_all(&self.pool)
+        .await?;
+    
+        Ok(rows.into_iter().map(|row| LogEntry {
+            id: row.id,
+            level: row.level,
+            message: row.message,
+            component: row.component,
+            server_id: row.server_id,
+            timestamp: row.timestamp,
+            metadata: row.metadata.into(),  // Option<JsonValue>를 LogMetadata로 변환
+            stack_trace: row.stack_trace,
+            source_location: row.source_location,
+            correlation_id: row.correlation_id,
+        }).collect())
+    }
+
     pub async fn get_server_metrics(
         &self,
         server_id: &str,
         from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        to: DateTime<Utc>
     ) -> Result<Vec<MetricsSnapshot>> {
-        let results = sqlx::query_as!(
+        let metrics = sqlx::query_as!(
             MetricsSnapshot,
             r#"
             SELECT 
-                id, server_id, cpu_usage, memory_usage, disk_usage,
-                network_rx, network_tx, processes as "processes: JsonValue",
+                id,
+                server_id,
+                cpu_usage,
+                memory_usage,
+                disk_usage,
+                network_rx,
+                network_tx,
+                processes,
                 timestamp
             FROM metrics_snapshots
-            WHERE server_id = $1 AND timestamp BETWEEN $2 AND $3
-            ORDER BY timestamp DESC
+            WHERE server_id = $1 
+            AND timestamp BETWEEN $2 AND $3
+            ORDER BY timestamp ASC
             "#,
             server_id,
             from,
@@ -172,7 +261,7 @@ impl Repository {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(results)
+        Ok(metrics)
     }
 
     pub async fn create_alert(&self, alert: Alert) -> Result<Alert> {
@@ -345,59 +434,27 @@ impl Repository {
         Ok(())
     }
 
-    pub async fn get_server_by_hostname(&self, hostname: &str) -> Result<Option<Server>> {
-        let result = sqlx::query_as!(
-            Server,
-            r#"
-            SELECT 
-                id, name, hostname, ip_address, port, username, encrypted_password,
-                location, description,
-                server_type as "server_type: ServerType",
-                is_online, last_seen_at, metadata, created_by, created_at, updated_at
-            FROM servers 
-            WHERE hostname = $1
-            "#,
-            hostname
-        )
-        .fetch_optional(&self.pool)
-        .await?;
-
-        Ok(result)
-    }
-
     pub async fn create_log(&self, log: LogEntry) -> Result<LogEntry> {
-        let metadata_json = match &log.metadata.0 {
-            Some(map) => serde_json::to_value(map).unwrap_or(JsonValue::Null),
-            None => JsonValue::Null,
-        };
-    
+        let metadata_json = serde_json::to_value(&log.metadata).unwrap_or(JsonValue::Null);
+        
         let result = sqlx::query!(
             r#"
-            WITH inserted AS (
-                INSERT INTO logs (
-                    id, level, message, component, server_id, timestamp,
-                    metadata, stack_trace, source_location, correlation_id
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                RETURNING 
-                    id, 
-                    level as "level: LogLevel", 
-                    message, 
-                    component, 
-                    server_id,
-                    timestamp, 
-                    metadata as "metadata!: JsonValue",
-                    stack_trace, 
-                    source_location, 
-                    correlation_id
+            INSERT INTO logs (
+                id, level, message, component, server_id, timestamp,
+                metadata, stack_trace, source_location, correlation_id
             )
-            SELECT 
-                i.*,
-                ts.tsv::text as message_tsv
-            FROM inserted i
-            CROSS JOIN LATERAL (
-                SELECT to_tsvector('english', i.message) as tsv
-            ) ts
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING 
+                id, 
+                level as "level: LogLevel", 
+                message, 
+                component, 
+                server_id,
+                timestamp, 
+                metadata as "metadata: JsonValue",
+                stack_trace, 
+                source_location, 
+                correlation_id
             "#,
             log.id,
             log.level as LogLevel,
@@ -412,7 +469,7 @@ impl Repository {
         )
         .fetch_one(&self.pool)
         .await?;
-    
+
         Ok(LogEntry {
             id: result.id,
             level: result.level,
@@ -424,8 +481,7 @@ impl Repository {
             stack_trace: result.stack_trace,
             source_location: result.source_location,
             correlation_id: result.correlation_id,
-            message_tsv: result.message_tsv,
-        }) 
+        })
     }
 
     pub async fn get_log(&self, id: &str) -> Result<Option<LogEntry>> {
@@ -439,11 +495,10 @@ impl Repository {
                 component,
                 server_id,
                 timestamp,
-                metadata as "metadata!: JsonValue",
+                metadata as "metadata?: JsonValue",
                 stack_trace,
                 source_location,
-                correlation_id,
-                to_tsvector('english', message)::text as message_tsv
+                correlation_id
             FROM logs 
             WHERE id = $1
             "#,
@@ -464,15 +519,15 @@ impl Repository {
                 component,
                 server_id,
                 timestamp,
-                metadata as "metadata!: JsonValue",
+                metadata as "metadata?: JsonValue",
                 stack_trace,
                 source_location,
-                correlation_id,
-                to_tsvector('english', message)::text as message_tsv
-            FROM logs WHERE true
+                correlation_id
+            FROM logs 
+            WHERE true
             "#
-        );
-        
+        );        
+
         if let Some(levels) = filter.levels {
             query.push(" AND level = ANY(");
             let level_strings: Vec<String> = levels.into_iter()
@@ -524,18 +579,17 @@ impl Repository {
         let logs = sql.fetch_all(&self.pool).await?.into_iter()
             .map(|row| LogEntry {
                 id: row.get("id"),
-                level: row.get("level"),  // 자동 변환됨
+                level: row.get("level"),
                 message: row.get("message"),
                 component: row.get("component"),
                 server_id: row.get("server_id"),
                 timestamp: row.get("timestamp"),
-                metadata: LogMetadata::from(row.get::<JsonValue, _>("metadata")),
+                metadata: row.get::<Option<JsonValue>, _>("metadata").into(),
                 stack_trace: row.get("stack_trace"),
                 source_location: row.get("source_location"),
                 correlation_id: row.get("correlation_id"),
-                message_tsv: row.get("message_tsv"),
             }).collect();
-    
+
         Ok(logs)
     }
 
@@ -598,9 +652,7 @@ impl Repository {
         Ok(())
     }
 
-    pub async fn clear_user_cache(&self, user_id: &str) -> Result<()> {
-        // 캐시 시스템을 사용하는 경우 여기서 구현
-        // 현재는 아무 작업도 하지 않고 성공 반환
+    pub async fn clear_user_cache(&self, _user_id: &str) -> Result<()> {
         Ok(())
     }
 }

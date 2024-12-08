@@ -6,7 +6,6 @@ use ssh2::Session;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 use std::time::Duration;
-use std::sync::Arc;
 use std::fmt;
 use serde_json::json;
 use tracing::{debug, info};
@@ -14,6 +13,12 @@ use crate::db::{models::{Server, ServerType}, repository::Repository};
 use crate::models::logs::LogEntry;
 use crate::config::ServerConfig;
 use crate::utils::encryption::Encryptor;
+use crate::monitoring::MonitoringService;
+use crate::auth::types::AuthenticatedUser;
+use crate::db::models::UserRole;
+use actix_web::error::ErrorInternalServerError;
+use tracing::error;
+
 
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -129,11 +134,13 @@ impl ResponseError for ServerError {
 }
 
 // 서버 생성
+
 pub async fn create_server(
     repo: web::Data<Repository>,
     server_info: web::Json<CreateServerRequest>,
     config: web::Data<ServerConfig>,
-) -> Result<HttpResponse> {
+    user: AuthenticatedUser, 
+) -> Result<HttpResponse, actix_web::Error> {
     // 1. 입력값 검증
     if server_info.name.is_empty() || server_info.host.is_empty() {
         return Ok(HttpResponse::BadRequest().json(json!({
@@ -141,26 +148,30 @@ pub async fn create_server(
         })));
     }
 
-    // 2. 중복 확인
-    if let Ok(Some(_)) = repo.get_server_by_hostname(&server_info.host).await {
+    // 2. hostname 대소문자 구분 없이 중복 확인
+    let hostname = server_info.host.to_lowercase();
+    if let Ok(Some(_)) = repo.get_server_by_hostname(&hostname).await {
         return Ok(HttpResponse::Conflict().json(json!({
             "error": "Server with this hostname already exists"
         })));
     }
 
     // 3. 비밀번호 암호화
-    let encryptor = Encryptor::new(&config.encryption.key, &config.encryption.nonce)?;
-    let encrypted_password = encryptor.encrypt(&server_info.password)?;
+    let encryptor = Encryptor::new(&config.encryption.key, &config.encryption.nonce)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let encrypted_password = encryptor.encrypt(&server_info.password)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     // 4. 서버 생성
     let server = Server {
         id: Uuid::new_v4().to_string(),
         name: server_info.name.clone(),
-        hostname: server_info.host.clone(),
+        hostname: hostname,
         port: server_info.port,
         username: server_info.username.clone(),
         encrypted_password,
         server_type: server_info.server_type.clone(),
+        created_by: Some(user.id),
         created_at: Utc::now(),
         updated_at: Utc::now(),
         ..Default::default()
@@ -169,21 +180,33 @@ pub async fn create_server(
     // 5. DB에 저장
     match repo.create_server(server).await {
         Ok(created_server) => Ok(HttpResponse::Created().json(created_server)),
-        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
-            "error": format!("Failed to create server: {}", e)
-        }))),
+        Err(e) => {
+            error!("Failed to create server: {}", e);
+            Ok(HttpResponse::InternalServerError().json(json!({
+                "error": format!("Failed to create server: {}", e)
+            })))
+        }
     }
 }
 
 // 서버 목록 조회
+
 pub async fn get_servers(
     repo: web::Data<Repository>,
-) -> Result<HttpResponse> {
-    let servers = repo.list_servers().await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    user: AuthenticatedUser, 
+) -> Result<HttpResponse, actix_web::Error> {
+    let servers = if user.role == UserRole::Admin {
+        repo.list_servers().await
+    } else {
+        repo.list_servers_by_user(&user.id).await
+    }.map_err(|e| {
+        error!("Failed to fetch servers: {}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
 
     Ok(HttpResponse::Ok().json(servers))
 }
+
 
 // 특정 서버 조회
 pub async fn get_server(
@@ -199,57 +222,92 @@ pub async fn get_server(
     }
 }
 
+fn handle_error(err: anyhow::Error) -> actix_web::Error {
+    ErrorInternalServerError(err.to_string())
+}
+
 // 서버 상태 업데이트
 pub async fn update_server_status(
     repo: web::Data<Repository>,
     server_id: web::Path<String>,
     status: web::Json<UpdateServerStatusRequest>,
-) -> Result<HttpResponse> {
-    repo.update_server_status(&server_id, status.is_online).await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    user: AuthenticatedUser,
+) -> Result<HttpResponse, actix_web::Error> {
+    let server = match repo.get_server(&server_id).await.map_err(handle_error)? {
+        Some(s) => s,
+        None => return Ok(HttpResponse::NotFound().finish()),
+    };
 
+    // 권한 체크
+    if user.role != UserRole::Admin && server.created_by.as_deref() != Some(&user.id) {
+        return Ok(HttpResponse::Forbidden().json(json!({
+            "error": "You don't have permission to update this server"
+        })));
+    }
+
+    repo.update_server_status(&server_id, status.is_online)
+        .await
+        .map_err(handle_error)?;
+    
     Ok(HttpResponse::Ok().finish())
 }
 
-// 서버 상태 가져오기
+// 서버 상태 조회
 pub async fn get_server_status(
-    repo: web::Data<Arc<Repository>>,
+    repo: web::Data<Repository>,
+    monitoring: web::Data<MonitoringService>,
     server_id: web::Path<String>,
 ) -> Result<HttpResponse> {
+    // 서버 정보 조회
     let server = match repo.get_server(&server_id).await
         .map_err(|e| actix_web::error::ErrorInternalServerError(e))? {
         Some(server) => server,
         None => return Ok(HttpResponse::NotFound().finish()),
     };
 
-    let status = ServerStatusResponse {
-        id: server.id.clone(),
-        name: server.name.clone(),
-        resources: ResourceUsage {
-            cpu: 0.0,
-            memory: 0.0,
-            disk: 0.0,
-            network: "0 B/s".to_string(),
-            history: vec![],
-            last_updated: None,
+    // 현재는 모니터링이 구현되지 않았으므로, 기본값을 반환
+    Ok(HttpResponse::Ok().json(json!({
+        "id": server.id,
+        "name": server.name,
+        "status": if server.is_online { "online" } else { "offline" },
+        "resources": {
+            "cpu": 0.0,
+            "memory": 0.0,
+            "disk": 0.0,
+            "network": "0 B/s",
+            "history": [],
+            "last_updated": null
         },
-        status: if server.is_online { "online" } else { "offline" }.to_string(),
-        uptime: "0s".to_string(),
-        processes: vec![],
-        recent_logs: vec![],
-    };
-
-    Ok(HttpResponse::Ok().json(status))
+        "uptime": "0s",
+        "processes": [],
+        "recent_logs": []
+    })))
 }
 
 // 서버 삭제
 pub async fn delete_server(
     repo: web::Data<Repository>,
     server_id: web::Path<String>,
-) -> Result<HttpResponse> {
-    repo.delete_server(&server_id).await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    user: AuthenticatedUser,
+) -> Result<HttpResponse, actix_web::Error> {  
+    // 서버 조회
+    let server = match repo.get_server(&server_id).await.map_err(handle_error)? { 
+        Some(s) => s,
+        None => return Ok(HttpResponse::NotFound().finish()),
+    };
 
+    // 권한 체크
+    if user.role != UserRole::Admin && server.created_by.as_deref() != Some(&user.id) {
+        return Ok(HttpResponse::Forbidden().json(json!({
+            "error": "You don't have permission to delete this server"
+        })));
+    }
+
+    // 에러 처리 추가
+    repo.delete_server(&server_id)
+        .await
+        .map_err(handle_error)?;  
+        
     Ok(HttpResponse::NoContent().finish())
 }
 
