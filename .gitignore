@@ -9,6 +9,7 @@ Thumbs.db
 
 # Rust
 /rust_server/target/
+20241121000000_initial_schema.sql
 
 # IDE
 .idea/

@@ -8,3 +8,4 @@
 !.sqlx/
 !.sqlx/**/*
 *.sh
+20241121000000_initial_schema.sql
