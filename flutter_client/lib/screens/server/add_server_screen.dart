@@ -50,6 +50,12 @@ class _ServerAddScreenState extends State<ServerAddScreen> {
       SnackBarUtils.showSuccess(context, '서버가 추가되었습니다');
     } catch (e) {
       if (!mounted) return;
+      // 409 Conflict 에러 처리
+      if (e.toString().contains('409')) {
+        SnackBarUtils.showInfo(
+            context, '이미 등록된 서버입니다.\n다른 서버를 등록하시거나 기존 서버를 활용해주세요.');
+        return;
+      }
       SnackBarUtils.showError(context, '서버 추가 실패: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);

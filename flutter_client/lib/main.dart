@@ -1,6 +1,8 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_client/app.dart';
 import 'package:flutter_client/config/constants.dart';
@@ -18,6 +20,12 @@ import 'package:flutter_client/services/websocket_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 개발 중에만 토큰 초기화하기
+  if (kDebugMode) {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // 저장된 토큰 초기화
+  }
 
   // 화면 방향 고정
   await SystemChrome.setPreferredOrientations([

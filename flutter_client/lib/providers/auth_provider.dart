@@ -43,6 +43,11 @@ class AuthProvider with ChangeNotifier {
       final refreshTokenStr = await _storageService.getRefreshToken();
 
       if (token != null && refreshTokenStr != null) {
+        // Duration null 체크와 함께 안전하게 비교
+        final remainingTime = _authService.getTokenTimeRemaining(token);
+        if (remainingTime != null && remainingTime.inMinutes < 5) {
+          await refreshSession(); // 토큰 즉시 갱신
+        }
         _user = await _authService.getCurrentUser();
         _startSessionTimer();
         _updateLastActivityTime();
