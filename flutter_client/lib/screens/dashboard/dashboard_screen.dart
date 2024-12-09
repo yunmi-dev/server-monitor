@@ -244,7 +244,7 @@ class DashboardView extends StatelessWidget {
           'At-Risk Servers',
           atRiskServers.toString(),
           provider.serverTrends['atRisk'] ?? [0, 0, 0, 0, 0],
-          Colors.orange,
+          const Color.fromARGB(255, 249, 181, 114),
         ),
         const SizedBox(height: 12),
         _buildCategoryItem(
@@ -252,7 +252,7 @@ class DashboardView extends StatelessWidget {
           'Safe Servers',
           safeServers.toString(),
           provider.serverTrends['safe'] ?? [0, 0, 0, 0, 0],
-          Colors.green,
+          const Color.fromARGB(255, 125, 225, 108),
         ),
       ],
     );
@@ -402,7 +402,7 @@ class DashboardView extends StatelessWidget {
     } else if (value >= AppConstants.warningThreshold) {
       return Colors.orange;
     }
-    return Colors.pink;
+    return const Color(0xFFF06292);
   }
 
   Widget _buildUsageIndicator(String label, double value, Color color) {
@@ -632,13 +632,14 @@ class DashboardView extends StatelessWidget {
                         );
                       }).toList(),
                       isCurved: true,
-                      color: Colors.pink,
+                      color: const Color(0xFFF06292),
                       barWidth: 2,
                       isStrokeCapRound: true,
                       dotData: const FlDotData(show: true),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Colors.pink.withOpacity(0.1),
+                        color: const Color(0xFFF06292)
+                            .withOpacity(0.1), //const Color(0xFFF06292)
                       ),
                     ),
                   ],

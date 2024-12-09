@@ -189,4 +189,38 @@ class NumberUtils {
       return duration;
     }
   }
+
+  // 네트워크 사용량 문자열을 바이트 단위의 숫자로 변환
+  static double parseNetworkValue(String network) {
+    try {
+      // 숫자와 단위 추출 (예: "1.5 KB/s" -> ["1.5", "KB"])
+      final RegExp regex = RegExp(r'(\d+\.?\d*)\s*([KMGT]?B)/s');
+      final match = regex.firstMatch(network);
+
+      if (match == null) {
+        // 순수 숫자인 경우 그대로 반환
+        return double.tryParse(network.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+            0.0;
+      }
+
+      final value = double.parse(match.group(1)!);
+      final unit = match.group(2)!;
+
+      // 단위에 따른 변환
+      switch (unit[0]) {
+        case 'K':
+          return value * 1024;
+        case 'M':
+          return value * 1024 * 1024;
+        case 'G':
+          return value * 1024 * 1024 * 1024;
+        case 'T':
+          return value * 1024 * 1024 * 1024 * 1024;
+        default:
+          return value; // B 단위 또는 단위 없는 경우
+      }
+    } catch (e) {
+      return 0.0; // 파싱 실패시 0 반환
+    }
+  }
 }

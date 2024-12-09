@@ -98,7 +98,7 @@ class DetailSettingsScreen extends StatelessWidget {
             onChanged: (newValue) {
               // Update setting
             },
-            activeColor: Colors.pink,
+            activeColor: const Color(0xFFF06292),
           ),
         ],
       ),
@@ -125,7 +125,7 @@ class DetailSettingsScreen extends StatelessWidget {
             max: 100,
             divisions: 20,
             label: '$value%',
-            activeColor: Colors.pink,
+            activeColor: const Color(0xFFF06292),
             onChanged: (newValue) {
               // Update threshold
             },

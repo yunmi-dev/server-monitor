@@ -111,13 +111,13 @@ class ResourceOverviewChart extends StatelessWidget {
                 const FlSpot(12, 65),
               ],
               isCurved: true,
-              color: Colors.pink,
+              color: const Color(0xFFF06292),
               barWidth: 2,
               isStrokeCapRound: true,
               dotData: const FlDotData(show: false),
               belowBarData: BarAreaData(
                 show: true,
-                color: Colors.pink.withOpacity(0.1),
+                color: const Color(0xFFF06292).withOpacity(0.1),
               ),
             ),
             // Memory Line

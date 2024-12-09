@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_client/providers/server_provider.dart';
 import 'package:flutter_client/config/constants.dart';
-import 'package:flutter_client/widgets/common/status_indicator.dart';
-import 'package:flutter_client/widgets/common/resource_indicator.dart';
+import 'package:flutter_client/widgets/charts/common/status_indicator.dart';
+import 'package:flutter_client/widgets/charts/common/resource_indicator.dart';
 
 class ServerMetricsWidget extends StatelessWidget {
   final String serverId;

@@ -21,10 +21,10 @@ class AnimatedProgressRing extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<AnimatedProgressRing> createState() => _AnimatedProgressRingState();
+  State<AnimatedProgressRing> createState() => AnimatedProgressRingState();
 }
 
-class _AnimatedProgressRingState extends State<AnimatedProgressRing>
+class AnimatedProgressRingState extends State<AnimatedProgressRing>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
@@ -48,18 +48,24 @@ class _AnimatedProgressRingState extends State<AnimatedProgressRing>
     _controller.forward();
   }
 
-  @override
-  void didUpdateWidget(AnimatedProgressRing oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.progress != widget.progress) {
+  void updateProgress() {
+    if (mounted) {
       _animation = Tween<double>(
-        begin: oldWidget.progress,
+        begin: _animation.value,
         end: widget.progress,
       ).animate(CurvedAnimation(
         parent: _controller,
         curve: Curves.easeInOutCubic,
       ));
       _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void didUpdateWidget(AnimatedProgressRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.progress != widget.progress) {
+      updateProgress();
     }
   }
 

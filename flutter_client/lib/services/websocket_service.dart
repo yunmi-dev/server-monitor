@@ -31,48 +31,32 @@ class WebSocketService {
   bool get isConnected => _isConnected;
   Stream<ServerMetrics> get metricsStream => _metricsController.stream;
 
-// lib/services/websocket_service.dart의 _handleMessage 함수 수정 TODO debug
+  // lib/services/websocket_service.dart의 _handleMessage 함수 수정 TODO debug
   void _handleMessage(dynamic message) {
     try {
-      print('Raw WebSocket message type: ${message.runtimeType}');
       final data = jsonDecode(message as String);
-      print('Message type: ${data['type']}');
-      print('Full message data: $data');
 
       if (data['type'] == 'resource_metrics') {
-        print('Resource metrics data structure: ${data['data']}');
-        // 메트릭스 데이터의 구조와 값들을 자세히 출력
-      }
-
-      final socketMessage = SocketMessage(
-        type: _getMessageType(data['type'] as String?),
-        data: data['data'] as Map<String, dynamic>,
-        timestamp: DateTime.now(),
-      );
-
-      print('Created SocketMessage: ${socketMessage.type}'); // 로그 추가
-      _messageController.add(socketMessage);
-
-      if (socketMessage.type == MessageType.resourceMetrics) {
-        final metricData = socketMessage.data;
-        print('Processing resource metrics: $metricData'); // 로그 추가
-
+        final metricData = data['data'];
         final metrics = ServerMetrics(
           serverId: metricData['serverId'],
-          cpuUsage: metricData['cpuUsage'].toDouble(),
-          memoryUsage: metricData['memoryUsage'].toDouble(),
-          diskUsage: metricData['diskUsage'].toDouble(),
-          networkUsage: metricData['networkUsage'].toDouble(),
-          processCount: metricData['processCount'],
+          serverName: metricData['serverName'] ?? 'Unknown',
+          cpuUsage: (metricData['cpuUsage'] as num).toDouble(),
+          memoryUsage: (metricData['memoryUsage'] as num).toDouble(),
+          diskUsage: (metricData['diskUsage'] as num).toDouble(),
+          networkUsage: (metricData['networkUsage'] as num).toDouble(),
+          processCount: metricData['processCount'] ?? 0,
           timestamp: DateTime.parse(metricData['timestamp']),
+          processes: (metricData['processes'] as List?)
+                  ?.map((p) => ProcessInfo.fromJson(p as Map<String, dynamic>))
+                  .toList() ??
+              [],
         );
-        print('Created ServerMetrics object: ${metrics.toString()}'); // 로그 추가
+
         _metricsController.add(metrics);
       }
     } catch (e, stack) {
-      print('WebSocket message processing error: $e'); // 로그 추가
-      print('Stack trace: $stack'); // 로그 추가
-      logger.error('Error processing WebSocket message: $e\n$stack');
+      print('WebSocket message processing error: $e\n$stack');
     }
   }
 

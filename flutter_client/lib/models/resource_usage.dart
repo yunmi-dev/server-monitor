@@ -107,6 +107,23 @@ class ResourceUsage with _$ResourceUsage {
     );
   }
 
+  double valueForType(String type) {
+    switch (type) {
+      case 'cpu':
+        return cpu;
+      case 'memory':
+        return memory;
+      case 'disk':
+        return disk;
+      case 'network':
+        // Convert network string to numeric value if needed
+        // This is a simplified example - you might need to parse the network string
+        return double.tryParse(network.split(' ').first) ?? 0.0;
+      default:
+        return 0.0;
+    }
+  }
+
   ResourceUsage trimHistory(Duration duration) {
     final cutoff = DateTime.now().subtract(duration);
     return copyWith(

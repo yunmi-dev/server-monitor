@@ -16,7 +16,7 @@ class CustomSwitch extends StatelessWidget {
     return Switch(
       value: value,
       onChanged: onChanged,
-      activeColor: Colors.pink,
+      activeColor: const Color(0xFFF06292),
       inactiveTrackColor: Colors.grey.withOpacity(0.3),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
     );

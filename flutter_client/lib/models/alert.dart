@@ -22,13 +22,13 @@ enum AlertSeverity {
   Color get color {
     switch (this) {
       case AlertSeverity.info:
-        return Colors.blue;
+        return const Color.fromARGB(255, 113, 191, 255);
       case AlertSeverity.warning:
-        return Colors.orange;
+        return const Color.fromARGB(255, 255, 190, 92);
       case AlertSeverity.error:
-        return Colors.red;
+        return const Color.fromARGB(255, 255, 111, 101);
       case AlertSeverity.critical:
-        return Colors.purple;
+        return const Color.fromARGB(255, 237, 134, 255);
     }
   }
 

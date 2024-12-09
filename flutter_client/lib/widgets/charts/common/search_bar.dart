@@ -1,6 +1,6 @@
 // lib/widgets/common/search_bar.dart
 import 'package:flutter/material.dart';
-import '../../config/constants.dart';
+import '../../../config/constants.dart';
 
 class CustomSearchBar extends StatefulWidget {
   final String? hintText;

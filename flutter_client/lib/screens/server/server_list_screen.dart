@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_client/providers/server_provider.dart';
 import 'package:flutter_client/widgets/server/server_list_item.dart';
-import 'package:flutter_client/widgets/common/search_bar.dart';
+import 'package:flutter_client/widgets/charts/common/search_bar.dart';
 import 'package:flutter_client/models/server.dart';
 import 'package:flutter_client/constants/route_paths.dart';
 

@@ -54,19 +54,19 @@ class ServerProvider with ChangeNotifier {
   }
 
   void handleMetricsUpdate(ServerMetrics metrics) {
+    // 기존 서버 찾기
     final serverIndex = _servers.indexWhere((s) => s.id == metrics.serverId);
     if (serverIndex != -1) {
-      // 리소스 업데이트 - networkUsage를 문자열로 변환
-      final updatedServer = _servers[serverIndex].copyWith(
+      // 리소스 업데이트
+      _servers[serverIndex] = _servers[serverIndex].copyWith(
         resources: ResourceUsage(
           cpu: metrics.cpuUsage,
           memory: metrics.memoryUsage,
           disk: metrics.diskUsage,
-          network: '${metrics.networkUsage}MB/s', // networkUsage 사용
+          network: '${metrics.networkUsage.toStringAsFixed(1)} MB/s',
           lastUpdated: metrics.timestamp,
         ),
       );
-      _servers[serverIndex] = updatedServer;
 
       // 히스토리 데이터 업데이트
       _updateResourceHistory(metrics.serverId, metrics);
@@ -80,28 +80,18 @@ class ServerProvider with ChangeNotifier {
       _resourceHistory[serverId] = [];
     }
 
-    final now = DateTime.now();
+    final history = _resourceHistory[serverId]!;
 
-    // CPU, Memory, Disk 데이터 추가
-    _resourceHistory[serverId]!.add(
-        TimeSeriesData(timestamp: now, value: metrics.cpuUsage, label: 'CPU'));
-
-    _resourceHistory[serverId]!.add(TimeSeriesData(
-        timestamp: now, value: metrics.memoryUsage, label: 'Memory'));
-
-    // 네트워크 데이터 추가 (networkUsage 사용)
-    _resourceHistory[serverId]!.add(
-      TimeSeriesData(
-        timestamp: now,
-        value: metrics.networkUsage,
-        label: 'Network',
-        metadata: {'unit': 'MB/s'},
-      ),
-    );
+    // 새로운 데이터 포인트 추가
+    history.add(TimeSeriesData(
+      timestamp: metrics.timestamp,
+      value: metrics.cpuUsage,
+      label: 'CPU',
+    ));
 
     // 최대 데이터 포인트 수 제한
-    while (_resourceHistory[serverId]!.length > _maxHistoryPoints) {
-      _resourceHistory[serverId]!.removeAt(0);
+    while (history.length > _maxHistoryPoints) {
+      history.removeAt(0);
     }
   }
 

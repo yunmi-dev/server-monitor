@@ -7,7 +7,7 @@ import 'package:flutter_client/models/server.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/widgets/server/add_server_modal.dart';
 import 'package:flutter_client/widgets/server/server_list_item.dart';
-import 'package:flutter_client/widgets/common/empty_state_widget.dart';
+import 'package:flutter_client/widgets/charts/common/empty_state_widget.dart';
 import 'package:flutter_client/services/storage_service.dart';
 
 class ServersScreen extends StatefulWidget {
