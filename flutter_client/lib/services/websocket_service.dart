@@ -17,88 +17,69 @@ class WebSocketService {
   bool _isConnected = false;
   bool _isConnecting = false;
   final _messageController = StreamController<SocketMessage>.broadcast();
-  final _metricsController = StreamController<ServerMetrics>.broadcast(); // 추가
+  final _metricsController = StreamController<ServerMetrics>.broadcast();
   Timer? _reconnectTimer;
   Timer? _pingTimer;
   final Set<String> _subscribedServers = {};
-  int _reconnectAttempts = 0;
-  static const int maxReconnectAttempts = 5;
-  static const Duration initialReconnectDelay = Duration(seconds: 1);
-  static const Duration maxReconnectDelay = Duration(seconds: 30);
+
+  static const Duration _reconnectDelay = Duration(seconds: 5);
+  static const Duration _pingInterval = Duration(seconds: 30);
 
   WebSocketService._internal();
 
-  bool get isConnected => _isConnected;
   Stream<SocketMessage> get messageStream => _messageController.stream;
+  bool get isConnected => _isConnected;
   Stream<ServerMetrics> get metricsStream => _metricsController.stream;
 
+// lib/services/websocket_service.dart의 _handleMessage 함수 수정 TODO debug
   void _handleMessage(dynamic message) {
     try {
-      logger.verbose('Processing incoming WebSocket message...');
+      print('WebSocket received raw message: $message'); // 로그 추가
+      final data = jsonDecode(message as String);
+      print('Decoded WebSocket message: $data'); // 로그 추가
 
-      Map<String, dynamic> data;
-      if (message is String) {
-        data = jsonDecode(message);
-      } else if (message is Map<String, dynamic>) {
-        data = message;
-      } else {
-        throw const FormatException('Invalid message format');
-      }
+      final socketMessage = SocketMessage(
+        type: _getMessageType(data['type'] as String?),
+        data: data['data'] as Map<String, dynamic>,
+        timestamp: DateTime.now(),
+      );
 
-      // 서버 메트릭 데이터 처리
-      if (data.containsKey('data') &&
-          data['data'] is Map<String, dynamic> &&
-          data['data'].containsKey('cpuUsage')) {
-        try {
-          final metricData = data['data'];
-          logger.verbose('Processing server metrics data: $metricData');
+      print('Created SocketMessage: ${socketMessage.type}'); // 로그 추가
+      _messageController.add(socketMessage);
 
-          final metrics = ServerMetrics(
-            serverId: metricData['serverId'] as String,
-            cpuUsage: (metricData['cpuUsage'] as num).toDouble(),
-            memoryUsage: (metricData['memoryUsage'] as num).toDouble(),
-            diskUsage: (metricData['diskUsage'] as num).toDouble(),
-            networkUsage: (metricData['networkUsage'] as num).toDouble(),
-            processCount: metricData['processCount'] as int,
-            timestamp: DateTime.parse(metricData['timestamp'] as String),
-            processes: (metricData['processes'] as List<dynamic>)
-                .map((p) => ProcessInfo(
-                      pid: p['pid'] as int,
-                      name: p['name'] as String,
-                      cpuUsage: (p['cpuUsage'] as num).toDouble(),
-                      memoryUsage: (p['memoryUsage'] as num).toDouble(),
-                    ))
-                .toList(),
-          );
+      if (socketMessage.type == MessageType.resourceMetrics) {
+        final metricData = socketMessage.data;
+        print('Processing resource metrics: $metricData'); // 로그 추가
 
-          final socketMessage = SocketMessage(
-            type: MessageType.resourceMetrics,
-            data: data['data'],
-            timestamp: metrics.timestamp,
-          );
-
-          _messageController.add(socketMessage);
-          _metricsController.add(metrics);
-
-          logger.info(
-              'Successfully processed metrics for server: ${metrics.serverId}');
-          logger.verbose(
-              'CPU: ${metrics.cpuUsage}%, Memory: ${metrics.memoryUsage}%, Disk: ${metrics.diskUsage}%, Network: ${metrics.networkUsage}');
-        } catch (e, stack) {
-          logger.error('Failed to parse metrics data: $e');
-          logger.error('Stack trace: $stack');
-          logger.error('Raw metric data: ${data['data']}');
-        }
-      } else {
-        logger.verbose('Processing non-metrics message');
-        final socketMessage = SocketMessage.fromJson(data);
-        _messageController.add(socketMessage);
-        logger.info('Processed message of type: ${socketMessage.type}');
+        final metrics = ServerMetrics(
+          serverId: metricData['serverId'],
+          cpuUsage: metricData['cpuUsage'].toDouble(),
+          memoryUsage: metricData['memoryUsage'].toDouble(),
+          diskUsage: metricData['diskUsage'].toDouble(),
+          networkUsage: metricData['networkUsage'].toDouble(),
+          processCount: metricData['processCount'],
+          timestamp: DateTime.parse(metricData['timestamp']),
+        );
+        print('Created ServerMetrics object: ${metrics.toString()}'); // 로그 추가
+        _metricsController.add(metrics);
       }
     } catch (e, stack) {
-      logger.error('Failed to parse WebSocket message: $e');
-      logger.error('Stack trace: $stack');
-      logger.error('Raw message: $message');
+      print('WebSocket message processing error: $e'); // 로그 추가
+      print('Stack trace: $stack'); // 로그 추가
+      logger.error('Error processing WebSocket message: $e\n$stack');
+    }
+  }
+
+  MessageType _getMessageType(String? type) {
+    switch (type) {
+      case 'resource_metrics': // 수정된 타입
+        return MessageType.resourceMetrics;
+      case 'alert':
+        return MessageType.alert;
+      case 'log':
+        return MessageType.log;
+      default:
+        return MessageType.unknown;
     }
   }
 
@@ -150,7 +131,6 @@ class WebSocketService {
 
       _isConnected = true;
       _isConnecting = false;
-      _reconnectAttempts = 0;
       logger.info('WebSocket connected successfully');
     } catch (e) {
       _isConnecting = false;
@@ -159,52 +139,35 @@ class WebSocketService {
     }
   }
 
-  // dispose 메서드 수정
-  Future<void> dispose() async {
-    await disconnect();
-    await _messageController.close();
-    await _metricsController.close(); // 추가
-  }
-
   void subscribeToServerMetrics(String serverId) {
-    if (_subscribedServers.contains(serverId)) return;
+    if (!_subscribedServers.contains(serverId)) {
+      final message = {
+        'type': 'server_metrics.subscribe',
+        'data': {'serverId': serverId}
+      };
 
-    if (_isConnected) {
-      sendMessage('resource_metrics', {
-        'topic': 'server.metrics',
-        'serverId': serverId,
-      });
+      _channel?.sink.add(jsonEncode(message));
       _subscribedServers.add(serverId);
       logger.info('Subscribed to metrics for server: $serverId');
-    } else {
-      _subscribedServers.add(serverId);
-      logger.info('Queued subscription for server: $serverId');
     }
   }
 
   void unsubscribeFromServerMetrics(String serverId) {
-    if (!_subscribedServers.contains(serverId)) return;
+    if (_subscribedServers.contains(serverId)) {
+      final message = {
+        'type': 'server_metrics.unsubscribe',
+        'data': {'server_id': serverId}
+      };
 
-    if (_isConnected) {
-      sendMessage('resource_metrics', {
-        'topic': 'server.metrics',
-        'serverId': serverId,
-        'action': 'unsubscribe'
-      });
+      _channel?.sink.add(jsonEncode(message));
+      _subscribedServers.remove(serverId);
+      logger.info('Unsubscribed from metrics for server: $serverId');
     }
-    _subscribedServers.remove(serverId);
-    logger.info('Unsubscribed from metrics for server: $serverId');
   }
 
   void _restoreSubscriptions() {
-    if (!_isConnected) return;
-
     for (final serverId in _subscribedServers.toList()) {
-      sendMessage('subscribe', {
-        'topic': 'server.metrics',
-        'serverId': serverId,
-      });
-      logger.info('Restored subscription for server: $serverId');
+      subscribeToServerMetrics(serverId);
     }
   }
 
@@ -213,17 +176,24 @@ class WebSocketService {
 
     try {
       _isConnecting = true;
-      logger.info('Attempting WebSocket connection...');
+      logger.info('Connecting to WebSocket...');
+
+      final storage = await StorageService.initialize();
+      final token = await storage.getToken();
+
+      if (token == null) {
+        throw Exception('Missing auth token');
+      }
 
       final wsUri = Uri.parse(AppConstants.wsUrl)
           .replace(scheme: 'ws', path: '/api/v1/ws');
 
-      _channel = IOWebSocketChannel.connect(wsUri);
-
-      await _channel!.ready;
-      _isConnected = true;
-      _isConnecting = false;
-      _reconnectAttempts = 0;
+      _channel = IOWebSocketChannel.connect(
+        wsUri,
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
 
       _channel!.stream.listen(
         _handleMessage,
@@ -232,6 +202,8 @@ class WebSocketService {
         cancelOnError: true,
       );
 
+      _isConnected = true;
+      _isConnecting = false;
       _startPingTimer();
       _restoreSubscriptions();
       logger.info('WebSocket connected successfully');
@@ -250,45 +222,33 @@ class WebSocketService {
   }
 
   void _handleDisconnect() {
-    if (_isConnected) {
-      logger.info('WebSocket disconnected');
-      _isConnected = false;
-      _isConnecting = false;
-      _scheduleReconnect();
-    }
+    logger.info('WebSocket disconnected');
+    _isConnected = false;
+    _isConnecting = false;
+    _scheduleReconnect();
   }
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-
-    if (_reconnectAttempts >= maxReconnectAttempts) {
-      logger.error('Max reconnection attempts reached');
-      return;
-    }
-
-    final delay = Duration(
-        seconds: (initialReconnectDelay.inSeconds * (1 << _reconnectAttempts))
-            .clamp(0, maxReconnectDelay.inSeconds));
-
-    _reconnectTimer = Timer(delay, () {
-      _reconnectAttempts++;
-      logger.info(
-          'Attempting reconnect (${_reconnectAttempts}/$maxReconnectAttempts)');
-      connect();
+    _reconnectTimer = Timer(_reconnectDelay, () {
+      if (!_isConnected && !_isConnecting) {
+        connect();
+      }
     });
   }
 
   void _startPingTimer() {
     _pingTimer?.cancel();
-    _pingTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => _sendPing(),
-    );
+    _pingTimer = Timer.periodic(_pingInterval, (_) => _sendPing());
   }
 
   void _sendPing() {
     if (_isConnected) {
-      sendMessage('ping', {'timestamp': DateTime.now().toIso8601String()});
+      final message = {
+        'type': 'ping',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      _channel?.sink.add(jsonEncode(message));
     }
   }
 
@@ -301,19 +261,17 @@ class WebSocketService {
     try {
       final message = SocketMessage(
         type: MessageType.values.firstWhere(
-          (e) =>
-              e.toString().split('.').last.toLowerCase() == type.toLowerCase(),
+          (e) => e.value.toLowerCase() == type.toLowerCase(),
           orElse: () => MessageType.unknown,
         ),
         data: data,
         timestamp: DateTime.now(),
       );
 
-      // Map을 JSON 문자열로 직렬화
       final jsonString = jsonEncode(message.toJson());
       _channel?.sink.add(jsonString);
 
-      logger.debug('Sent WebSocket message: $message.type'); // 중괄호 제거
+      logger.debug('Sent WebSocket message: ${message.type}');
     } catch (e) {
       logger.error('Failed to send WebSocket message: $e');
       _handleError(e);
@@ -324,18 +282,17 @@ class WebSocketService {
     _pingTimer?.cancel();
     _reconnectTimer?.cancel();
     _subscribedServers.clear();
-    _reconnectAttempts = 0;
-    _isConnecting = false;
 
     if (_channel != null) {
-      try {
-        await _channel!.sink.close();
-        logger.info('WebSocket disconnected cleanly');
-      } catch (e) {
-        logger.error('Error during WebSocket disconnect: $e');
-      }
+      await _channel!.sink.close();
+      _isConnected = false;
+      _isConnecting = false;
     }
+  }
 
-    _isConnected = false;
+  Future<void> dispose() async {
+    await disconnect();
+    await _metricsController.close();
+    await _messageController.close();
   }
 }

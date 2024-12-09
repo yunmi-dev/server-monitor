@@ -166,13 +166,14 @@ class Process {
     return Process(
       pid: json['pid'] as int,
       name: json['name'] as String,
-      user: json['user'] as String,
+      // 실제 서버 응답에 없는 필드들은 기본값 제공
+      user: json['user'] ?? 'unknown', // 기본값 추가
       cpuUsage: (json['cpuUsage'] as num).toDouble(),
       memoryUsage: (json['memoryUsage'] as num).toDouble(),
-      threadCount: json['threadCount'] as int,
-      status: json['status'] as String,
-      startTime: DateTime.parse(json['startTime'] as String),
-      command: json['command'] as String,
+      threadCount: json['threadCount'] ?? 1, // 기본값 추가
+      status: json['status'] ?? 'unknown', // 기본값 추가
+      startTime: DateTime.now(), // 현재 시간으로 기본값
+      command: json['command'] ?? '', // 기본값 추가
       resourceHistory:
           Map<String, double>.from(json['resourceHistory'] as Map? ?? {}),
       isSystem: json['isSystem'] as bool? ?? false,

@@ -258,30 +258,61 @@ pub async fn get_server_status(
     monitoring: web::Data<MonitoringService>,
     server_id: web::Path<String>,
 ) -> Result<HttpResponse> {
-    // 서버 정보 조회
+    println!("get_server_status called for server_id: {}", server_id);
+
     let server = match repo.get_server(&server_id).await
         .map_err(|e| actix_web::error::ErrorInternalServerError(e))? {
-        Some(server) => server,
-        None => return Ok(HttpResponse::NotFound().finish()),
+        Some(server) => {
+            println!("Found server: {:?}", server);
+            server
+        },
+        None => {
+            println!("Server not found: {}", server_id);
+            return Ok(HttpResponse::NotFound().finish())
+        },
     };
 
-    // 현재는 모니터링이 구현되지 않았으므로, 기본값을 반환
-    Ok(HttpResponse::Ok().json(json!({
+    // 모니터링 서비스에서 메트릭 가져오기
+    let metrics = monitoring.get_server_metrics(&server_id).await;
+    println!("Got metrics for {}: {:?}", server_id, metrics);
+    
+    let now = chrono::Utc::now();
+    
+    let response = json!({
         "id": server.id,
         "name": server.name,
         "status": if server.is_online { "online" } else { "offline" },
         "resources": {
-            "cpu": 0.0,
-            "memory": 0.0,
-            "disk": 0.0,
-            "network": "0 B/s",
+            "cpu": metrics.as_ref().map_or(0.0, |m| m.cpu_usage),
+            "memory": metrics.as_ref().map_or(0.0, |m| m.memory_usage),
+            "disk": metrics.as_ref().map_or(0.0, |m| m.disk_usage),
+            "network": metrics.as_ref().map_or(
+                "0 B/s".to_string(), 
+                |m| format!("{} B/s", (m.network_rx + m.network_tx) / 2)
+            ),
             "history": [],
-            "last_updated": null
+            "lastUpdated": now.to_rfc3339()
         },
         "uptime": "0s",
-        "processes": [],
-        "recent_logs": []
-    })))
+        "processes": metrics.as_ref().map_or_else(
+            Vec::new,
+            |m| m.processes.iter().map(|p| json!({
+                "pid": p.pid,
+                "name": p.name,
+                "cpuUsage": p.cpu_usage,
+                "memoryUsage": p.memory_usage
+            })).collect::<Vec<_>>()
+        ),
+        "recent_logs": [],
+        "hostname": server.hostname,
+        "port": server.port,
+        "username": server.username,
+        "type": "linux",
+        "category": "physical"
+    });
+
+    println!("Sending response for {}: {}", server_id, response);
+    Ok(HttpResponse::Ok().json(response))
 }
 
 // 서버 삭제

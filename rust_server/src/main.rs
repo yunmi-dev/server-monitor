@@ -35,6 +35,20 @@ async fn main() -> Result<(), std::io::Error> {
     // 서비스 초기화
     let repository = web::Data::new(Repository::new(db_pool));
     let monitoring_service = web::Data::new(MonitoringService::new(repository.clone()));
+    
+    // 모니터링 서비스의 클론을 만들어 백그라운드 태스크에서 사용
+    let monitoring_service_for_task = monitoring_service.clone();
+    let repo_clone = repository.clone();
+    
+    // 모든 서버에 대해 모니터링 시작
+    tokio::spawn(async move {
+        if let Ok(servers) = repo_clone.list_servers().await {
+            for server in servers {
+                monitoring_service_for_task.start_monitoring(&server.id).await;
+            }
+        }
+    });
+
     let http_client = web::Data::new(reqwest::Client::new());
 
     let server_address = format!("{}:{}", 
@@ -45,7 +59,7 @@ async fn main() -> Result<(), std::io::Error> {
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .wrap(Compress::default())  // Compression -> Compress로 수정
+            .wrap(Compress::default()) 
             .wrap(setup_cors())
             .wrap(AuthMiddleware)
             .app_data(config.clone())

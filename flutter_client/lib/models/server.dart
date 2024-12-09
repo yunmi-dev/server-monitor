@@ -44,37 +44,52 @@ class Server {
   String? get host => hostname;
 
   factory Server.fromJson(Map<String, dynamic> json) {
-    // id 처리
-    String serverId = json['id'].toString();
+    print('Server fromJson raw data: $json'); // 로깅 추가 TODO
 
-    return Server(
-      id: serverId,
-      name: json['name'] ?? 'Unknown',
-      status: ServerStatus.fromString(json['status'] ?? 'offline'),
-      resources: json['resources'] != null
-          ? ResourceUsage.fromJson(json['resources'])
-          : ResourceUsage.empty(),
-      uptime: json['uptime'] ?? '0s',
-      processes: (json['processes'] as List?)
-              ?.map((p) => Process.fromJson(p))
-              .toList() ??
-          [],
-      recentLogs: (json['recent_logs'] as List?)
-              ?.map((log) => LogEntry.fromJson(log))
-              .toList() ??
-          [],
-      hostname: json['hostname'] ?? json['host'],
-      port: json['port'],
-      username: json['username'],
-      type: json['type'] != null
-          ? ServerType.fromJson(json['type'])
-          : ServerType.linux,
-      category: json['category'] != null
-          ? ServerCategory.fromJson(json['category'])
-          : ServerCategory.physical,
-    );
+    try {
+      // id 처리
+      String serverId = json['id'].toString();
+      print('Parsed serverId: $serverId'); // 로깅 추가
+
+      print('Parsing status from: ${json['status']}'); // 로깅 추가
+      print('Parsing resources from: ${json['resources']}'); // 로깅 추가
+      print('Parsing processes from: ${json['processes']}'); // 로깅 추가
+
+      final server = Server(
+        id: serverId,
+        name: json['name'] ?? 'Unknown',
+        status: ServerStatus.fromString(json['status'] ?? 'offline'),
+        resources: json['resources'] != null
+            ? ResourceUsage.fromJson(json['resources'])
+            : ResourceUsage.empty(),
+        uptime: json['uptime'] ?? '0s',
+        processes: (json['processes'] as List?)
+                ?.map((p) => Process.fromJson(p))
+                .toList() ??
+            [],
+        recentLogs: (json['recent_logs'] as List?)
+                ?.map((log) => LogEntry.fromJson(log))
+                .toList() ??
+            [],
+        hostname: json['hostname'] ?? json['host'],
+        port: json['port'],
+        username: json['username'],
+        type: json['type'] != null
+            ? ServerType.fromJson(json['type'])
+            : ServerType.linux,
+        category: json['category'] != null
+            ? ServerCategory.fromJson(json['category'])
+            : ServerCategory.physical,
+      );
+
+      print('Successfully created Server object: ${server.toJson()}'); // 로깅 추가
+      return server;
+    } catch (e, stack) {
+      print('Error in Server.fromJson: $e'); // 로깅 추가
+      print('Stack trace: $stack'); // 로깅 추가
+      rethrow;
+    }
   }
-
   Map<String, dynamic> toJson() {
     return {
       'id': id,

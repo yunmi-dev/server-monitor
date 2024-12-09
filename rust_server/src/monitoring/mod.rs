@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use sysinfo::{System, SystemExt, ProcessExt, CpuExt, DiskExt, NetworkExt, NetworksExt, PidExt};
 use crate::db::models::MetricsSnapshot;
 
+pub mod collector;
+
 #[derive(Clone)]
 pub struct MetricsCollector {
     system: Arc<RwLock<System>>,

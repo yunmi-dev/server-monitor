@@ -14,6 +14,7 @@ import 'package:flutter_client/models/server_metrics.dart';
 import 'package:flutter_client/services/storage_service.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter_client/models/resource_usage.dart';
 
 class ServerProvider with ChangeNotifier {
   static const Duration statusRefreshInterval = Duration(seconds: 5);
@@ -46,10 +47,31 @@ class ServerProvider with ChangeNotifier {
   }
 
   // 메트릭스 업데이트 처리
+// lib/providers/server_provider.dart의 _handleMetricsUpdate 함수 수정 TODO debug
   void _handleMetricsUpdate(ServerMetrics metrics) {
+    print('Received metrics update for server: ${metrics.serverId}'); // 로그 추가
+    print(
+        'Metrics values - CPU: ${metrics.cpuUsage}, Memory: ${metrics.memoryUsage}'); // 로그 추가
+
     _serverMetrics[metrics.serverId] = metrics;
-    _updateServerStatus(metrics.serverId);
-    notifyListeners();
+
+    final serverIndex = _servers.indexWhere((s) => s.id == metrics.serverId);
+    print('Found server at index: $serverIndex'); // 로그 추가
+
+    if (serverIndex != -1) {
+      _servers[serverIndex] = _servers[serverIndex].copyWith(
+        resources: ResourceUsage(
+          cpu: metrics.cpuUsage,
+          memory: metrics.memoryUsage,
+          disk: metrics.diskUsage,
+          network: '${metrics.networkUsage}MB/s',
+          lastUpdated: metrics.timestamp,
+        ),
+      );
+      print(
+          'Updated server resources: ${_servers[serverIndex].resources}'); // 로그 추가
+      notifyListeners();
+    }
   }
 
   // 서버 상태 업데이트
