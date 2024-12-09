@@ -1,215 +1,78 @@
-# System Architecture Overview
+# FLick - 시스템 아키텍처 개요
 
-## System Components
+## 시스템 구조
 
-### Backend Server (Rust)
-- **Framework**: Actix-web 4.x
-- **Database**: PostgreSQL 15+ with TimescaleDB
-- **Features**:
-  - Real-time server monitoring
-  - WebSocket support for live updates
-  - JWT authentication
-  - RESTful API
-  - Metrics collection and storage
-  - Alert system
-
-### Frontend Client (Flutter)
-- **Framework**: Flutter 3.19+
-- **State Management**: Provider
-- **Features**:
-  - Cross-platform support (iOS, Android, Web)
-  - Real-time metrics visualization
-  - Server management interface
-  - Alert notifications
-  - Responsive design
-
-### Database
-- **PostgreSQL + TimescaleDB**
-- **Data Models**:
-  ```
-  servers
-  ├── id (UUID)
-  ├── name
-  ├── hostname
-  ├── ip_address
-  └── status
-
-  metrics_snapshots
-  ├── id
-  ├── server_id
-  ├── timestamp
-  ├── cpu_usage
-  ├── memory_usage
-  └── disk_usage
-
-  alerts
-  ├── id
-  ├── server_id
-  ├── type
-  ├── severity
-  └── timestamp
-  ```
-
-## System Flow
-
-### 1. Monitoring Flow
 ```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-    participant DB
-    
-    Client->>Server: Connect via WebSocket
-    Server->>Client: Initial system state
-    loop Every minute
-        Server->>Server: Collect metrics
-        Server->>DB: Store metrics
-        Server->>Client: Push updates
+graph TB
+    subgraph Client["Flutter Client"]
+        UI[UI Layer]
+        Provider[State Management]
+        Services[Network Services]
     end
-```
 
-### 2. Alert System
-```mermaid
-sequenceDiagram
-    participant Monitoring
-    participant AlertSystem
-    participant DB
-    participant Client
-    
-    Monitoring->>AlertSystem: Metrics update
-    AlertSystem->>AlertSystem: Check thresholds
-    alt Threshold exceeded
-        AlertSystem->>DB: Create alert
-        AlertSystem->>Client: Push notification
+    subgraph Server["Rust Server"]
+        API[REST API]
+        WS[WebSocket]
+        Monitor[Metrics Collector]
     end
+
+    subgraph Database["PostgreSQL + TimescaleDB"]
+        Metrics[(Metrics)]
+        Users[(Users)]
+        Servers[(Servers)]
+    end
+
+    Provider --> Services
+    Services --> API
+    Services --> WS
+    API --> Monitor
+    WS --> Monitor
+    Monitor --> Metrics
+    API --> Users
+    API --> Servers
 ```
 
-## Security Architecture
+## 주요 컴포넌트
 
-### Authentication
-- JWT-based authentication
-- Token expiration and refresh mechanism
-- Role-based access control
+### 클라이언트 (Flutter)
+- **UI Layer**: Material Design 3 기반 사용자 인터페이스
+- **State Management**: Provider 패턴을 사용한 상태 관리
+- **Network Services**: 
+  - WebSocket을 통한 실시간 메트릭 수신
+  - REST API를 통한 서버 관리
 
-### Data Security
-- TLS/SSL encryption
-- Database connection pooling
-- Prepared statements for SQL injection prevention
+### 서버 (Rust)
+- **REST API**: Actix-web 기반 HTTP 엔드포인트
+- **WebSocket Server**: 실시간 메트릭 스트리밍
+- **Metrics Collector**: sysinfo 기반 시스템 메트릭 수집
+- **Authentication**: JWT 기반 인증 시스템
 
-## Scalability Considerations
+### 데이터베이스
+- **PostgreSQL**: 기본 데이터 저장소
+- **TimescaleDB**: 시계열 메트릭 데이터 최적화
 
-### Backend Scalability
-- Stateless API design
-- Database connection pooling
-- Efficient WebSocket connection management
+## 데이터 흐름
 
-### Data Management
-- TimescaleDB for efficient time-series data
-- Automatic data retention policies
-- Metrics aggregation for historical data
+1. **메트릭 수집**
+   - Metrics Collector가 1초 간격으로 시스템 메트릭 수집
+   - 수집된 데이터는 5초 간격으로 TimescaleDB에 저장
 
-## Development Architecture
+2. **실시간 모니터링**
+   - 클라이언트는 WebSocket을 통해 서버에 연결
+   - 서버는 수집된 메트릭을 실시간으로 스트리밍
 
-### Backend Structure
-```
-rust_server/
-├── src/
-│   ├── api/        # REST endpoints
-│   ├── auth/       # Authentication
-│   ├── db/         # Database operations
-│   ├── monitoring/ # System monitoring
-│   └── websocket/  # Real-time updates
-```
+3. **서버 관리**
+   - 클라이언트는 REST API를 통해 서버 추가/제거/관리
+   - 모든 API 요청은 JWT 토큰으로 인증
 
-### Frontend Structure
-```
-flutter_client/
-├── lib/
-│   ├── core/
-│   │   ├── auth/
-│   │   ├── config/
-│   │   └── network/
-│   ├── features/
-│   │   ├── dashboard/
-│   │   ├── monitoring/
-│   │   └── settings/
-│   └── shared/
-      ├── widgets/
-      └── utils/
-```
+## 보안 아키텍처
 
-## Technology Stack Details
+1. **인증 시스템**
+   - JWT 기반 접근 제어
+   - 비밀번호 Argon2 해싱
+   - AES-GCM 기반 서버 인증정보 암호화
 
-### Backend Technologies
-- **Rust** - Systems programming language
-- **Actix-web** - Web framework
-- **SQLx** - Database toolkit
-- **Serde** - Serialization framework
-- **Tokio** - Async runtime
-- **WebSocket** - Real-time communication
-
-### Frontend Technologies
-- **Flutter** - UI framework
-- **Provider** - State management
-- **dio** - HTTP client
-- **web_socket_channel** - WebSocket client
-- **charts_flutter** - Data visualization
-- **flutter_secure_storage** - Secure storage
-
-### Development Tools
-- **Docker** - Containerization
-- **GitHub Actions** - CI/CD
-- **SQLx-cli** - Database migrations
-- **flutter_test** - Testing framework
-
-## Performance Considerations
-
-### Backend Optimization
-- Connection pooling
-- Async I/O operations
-- Efficient data serialization
-- WebSocket connection management
-
-### Frontend Optimization
-- Lazy loading
-- Efficient state management
-- Widget rebuilding optimization
-- Asset optimization
-
-## Deployment Architecture
-
-### Production Environment
-- **Backend**: Docker containers
-- **Database**: Managed PostgreSQL service
-- **Frontend**: Web servers/Mobile app stores
-
-### Development Environment
-- Local development setup
-- Docker Compose for services
-- Hot reloading support
-
-## Monitoring and Logging
-
-### System Monitoring
-- Performance metrics collection
-- Resource usage tracking
-- Error rate monitoring
-- API latency tracking
-
-### Logging
-- Structured logging
-- Log levels configuration
-- Trace ID for request tracking
-
-## Future Considerations
-
-### Planned Improvements
-- Kubernetes deployment support
-- GraphQL API implementation
-- Real-time analytics
-- Enhanced security features
-
-### Scalability Plans
-- Microservices architecture
-- Distributed monitoring
-- Load balancing implementation
+2. **네트워크 보안**
+   - HTTPS/WSS 통신
+   - CORS 설정
+   - Rate Limiting

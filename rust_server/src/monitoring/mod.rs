@@ -61,7 +61,6 @@ pub struct MonitoringService {
     collectors: Arc<RwLock<HashMap<String, Arc<MetricsCollector>>>>,
 }
 
-
 impl MonitoringService {
     pub fn new(repo_data: actix_web::web::Data<Repository>) -> Self {
         Self {
