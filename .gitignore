@@ -31,3 +31,5 @@ Thumbs.db
 !.env.example
 rust_server/.env
 *.sh
+
+docker-compose.yml
