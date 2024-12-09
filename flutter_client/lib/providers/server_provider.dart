@@ -15,15 +15,22 @@ import 'package:flutter_client/services/storage_service.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_client/models/resource_usage.dart';
+import 'package:flutter_client/models/usage_data.dart';
+import 'package:flutter_client/utils/date_utils.dart';
 
 class ServerProvider with ChangeNotifier {
+  // 리소스 히스토리 저장을 위한 맵
+  final Map<String, List<TimeSeriesData>> _resourceHistory = {};
+  // 최대 데이터 포인트 수
+  final int _maxHistoryPoints = 50;
+
   static const Duration statusRefreshInterval = Duration(seconds: 5);
 
   final ApiService _apiService;
   final WebSocketService _webSocketService;
 
   List<Server> _servers = [];
-  Map<String, ServerMetrics> _serverMetrics = {};
+  final Map<String, ServerMetrics> _serverMetrics = {};
   bool _isLoading = false;
   String? _error;
 
@@ -46,8 +53,67 @@ class ServerProvider with ChangeNotifier {
     _webSocketService.metricsStream.listen(_handleMetricsUpdate);
   }
 
-  // 메트릭스 업데이트 처리
-// lib/providers/server_provider.dart의 _handleMetricsUpdate 함수 수정 TODO debug
+  void handleMetricsUpdate(ServerMetrics metrics) {
+    final serverIndex = _servers.indexWhere((s) => s.id == metrics.serverId);
+    if (serverIndex != -1) {
+      // 리소스 업데이트 - networkUsage를 문자열로 변환
+      final updatedServer = _servers[serverIndex].copyWith(
+        resources: ResourceUsage(
+          cpu: metrics.cpuUsage,
+          memory: metrics.memoryUsage,
+          disk: metrics.diskUsage,
+          network: '${metrics.networkUsage}MB/s', // networkUsage 사용
+          lastUpdated: metrics.timestamp,
+        ),
+      );
+      _servers[serverIndex] = updatedServer;
+
+      // 히스토리 데이터 업데이트
+      _updateResourceHistory(metrics.serverId, metrics);
+
+      notifyListeners();
+    }
+  }
+
+  void _updateResourceHistory(String serverId, ServerMetrics metrics) {
+    if (!_resourceHistory.containsKey(serverId)) {
+      _resourceHistory[serverId] = [];
+    }
+
+    final now = DateTime.now();
+
+    // CPU, Memory, Disk 데이터 추가
+    _resourceHistory[serverId]!.add(
+        TimeSeriesData(timestamp: now, value: metrics.cpuUsage, label: 'CPU'));
+
+    _resourceHistory[serverId]!.add(TimeSeriesData(
+        timestamp: now, value: metrics.memoryUsage, label: 'Memory'));
+
+    // 네트워크 데이터 추가 (networkUsage 사용)
+    _resourceHistory[serverId]!.add(
+      TimeSeriesData(
+        timestamp: now,
+        value: metrics.networkUsage,
+        label: 'Network',
+        metadata: {'unit': 'MB/s'},
+      ),
+    );
+
+    // 최대 데이터 포인트 수 제한
+    while (_resourceHistory[serverId]!.length > _maxHistoryPoints) {
+      _resourceHistory[serverId]!.removeAt(0);
+    }
+  }
+
+  List<TimeSeriesData> getServerResourceHistory(String serverId, String type) {
+    if (!_resourceHistory.containsKey(serverId)) return [];
+
+    return _resourceHistory[serverId]!
+        .where((data) => data.label?.toLowerCase() == type.toLowerCase())
+        .toList();
+  }
+
+  // DEBUG 로깅이 포함된 _handleMetricsUpdate 메서드
   void _handleMetricsUpdate(ServerMetrics metrics) {
     print('Handling metrics update');
     print('Server ID: ${metrics.serverId}');
@@ -64,12 +130,11 @@ class ServerProvider with ChangeNotifier {
         cpu: metrics.cpuUsage,
         memory: metrics.memoryUsage,
         disk: metrics.diskUsage,
-        network: '${metrics.networkUsage}MB/s',
+        network: '${metrics.networkUsage}MB/s', // networkUsage 사용
         lastUpdated: metrics.timestamp,
       );
       print('New resources: ${newResources.toJson()}');
-      print(
-          'Updated server resources: ${_servers[serverIndex].resources}'); // 로그 추가
+      print('Updated server resources: ${_servers[serverIndex].resources}');
       notifyListeners();
     }
   }
@@ -206,6 +271,41 @@ class ServerProvider with ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  List<TimeSeriesData> getCombinedResourceHistory(String type) {
+    if (servers.isEmpty) return [];
+
+    // 모든 서버의 데이터를 시간별로 집계
+    final combinedData = <DateTime, double>{};
+    final serverCount = servers.length;
+
+    for (final server in servers) {
+      final history = getServerResourceHistory(server.id, type);
+
+      for (final point in history) {
+        final existing = combinedData[point.timestamp] ?? 0.0;
+        combinedData[point.timestamp] = existing + (point.value / serverCount);
+      }
+    }
+
+    return combinedData.entries
+        .map((entry) => TimeSeriesData(
+              timestamp: entry.key,
+              value: entry.value,
+              metadata: {'type': type},
+            ))
+        .toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  }
+
+  List<UsageData> convertToUsageData(List<TimeSeriesData> timeSeriesData) {
+    return timeSeriesData
+        .map((point) => UsageData(
+              timestamp: DateTimeUtils.formatShortTime(point.timestamp),
+              values: [point.value],
+            ))
+        .toList();
   }
 
   Future<void> _tryAddServer(
@@ -582,27 +682,6 @@ class ServerProvider with ChangeNotifier {
     } catch (e) {
       _error = ErrorUtils.getErrorMessage(e);
     }
-  }
-
-  List<TimeSeriesData> getCombinedResourceHistory(String type) {
-    final combined = <TimeSeriesData>[];
-    for (final server in _servers) {
-      switch (type) {
-        case 'cpu':
-          combined.addAll(server.resources.cpuHistory);
-          break;
-        case 'memory':
-          combined.addAll(server.resources.memoryHistory);
-          break;
-        case 'disk':
-          combined.addAll(server.resources.diskHistory);
-          break;
-        case 'network':
-          combined.addAll(server.resources.networkHistory);
-          break;
-      }
-    }
-    return combined..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
   Future<void> refreshServerData(String serverId) async {

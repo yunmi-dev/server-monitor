@@ -89,62 +89,6 @@ class WebSocketService {
     }
   }
 
-  // 에러 확인용 TODO
-  void connectToWebSocket() async {
-    if (_isConnected || _isConnecting) return;
-    _isConnecting = true;
-
-    try {
-      final storage = await StorageService.initialize();
-      final token = await storage.getToken();
-
-      if (token == null) {
-        logger.error('WebSocket connection failed: Missing auth token');
-        _handleError('No authorization token');
-        _isConnecting = false;
-        return;
-      }
-
-      // WebSocket URL 수정
-      final wsUrl = Uri.parse('${AppConstants.wsUrl}/api/v1/ws')
-          .replace(scheme: 'ws')
-          .toString();
-      logger.info('Connecting to WebSocket at: $wsUrl');
-
-      _channel = IOWebSocketChannel.connect(
-        Uri.parse(wsUrl),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Connection': 'Upgrade',
-          'Upgrade': 'websocket',
-        },
-      );
-
-      _channel!.stream.listen(
-        (message) {
-          logger.info('Received: $message');
-          _handleMessage(message);
-        },
-        onError: (error) {
-          logger.error('WebSocket error: $error');
-          _handleError(error);
-        },
-        onDone: () {
-          logger.info('WebSocket closed');
-          _handleDisconnect();
-        },
-      );
-
-      _isConnected = true;
-      _isConnecting = false;
-      logger.info('WebSocket connected successfully');
-    } catch (e) {
-      _isConnecting = false;
-      logger.error('WebSocket connection error: $e');
-      _handleError(e);
-    }
-  }
-
   void subscribeToServerMetrics(String serverId) {
     if (!_subscribedServers.contains(serverId)) {
       final message = {
@@ -179,43 +123,57 @@ class WebSocketService {
 
   Future<void> connect() async {
     if (_isConnected || _isConnecting) return;
+    _isConnecting = true;
 
     try {
-      _isConnecting = true;
-      logger.info('Connecting to WebSocket...');
-
       final storage = await StorageService.initialize();
       final token = await storage.getToken();
 
       if (token == null) {
-        throw Exception('Missing auth token');
+        logger.error('WebSocket connection failed: Missing auth token');
+        _handleError('No authorization token');
+        _isConnecting = false;
+        return;
       }
 
       final wsUri = Uri.parse(AppConstants.wsUrl)
           .replace(scheme: 'ws', path: '/api/v1/ws');
 
+      logger.info('Connecting to WebSocket at: ${wsUri.toString()}');
+
       _channel = IOWebSocketChannel.connect(
         wsUri,
         headers: {
           'Authorization': 'Bearer $token',
+          'Connection': 'Upgrade',
+          'Upgrade': 'websocket',
         },
       );
 
       _channel!.stream.listen(
-        _handleMessage,
-        onError: _handleError,
-        onDone: _handleDisconnect,
-        cancelOnError: true,
+        (message) {
+          logger.info('Received: $message');
+          _handleMessage(message);
+        },
+        onError: (error) {
+          logger.error('WebSocket error: $error');
+          _handleError(error);
+        },
+        onDone: () {
+          logger.info('WebSocket closed');
+          _handleDisconnect();
+        },
       );
 
       _isConnected = true;
       _isConnecting = false;
       _startPingTimer();
       _restoreSubscriptions();
+
       logger.info('WebSocket connected successfully');
     } catch (e) {
       _isConnecting = false;
-      logger.error('WebSocket connection failed: $e');
+      logger.error('WebSocket connection error: $e');
       _handleError(e);
     }
   }

@@ -8,8 +8,8 @@ part of 'time_series_data.dart';
 
 _$TimeSeriesDataImpl _$$TimeSeriesDataImplFromJson(Map<String, dynamic> json) =>
     _$TimeSeriesDataImpl(
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      value: (json['value'] as num).toDouble(),
+      timestamp: _dateTimeFromJson(json['timestamp'] as String),
+      value: (json['value'] as num?)?.toDouble() ?? 0.0,
       label: json['label'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
     );
@@ -17,7 +17,7 @@ _$TimeSeriesDataImpl _$$TimeSeriesDataImplFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$$TimeSeriesDataImplToJson(
         _$TimeSeriesDataImpl instance) =>
     <String, dynamic>{
-      'timestamp': instance.timestamp.toIso8601String(),
+      'timestamp': _dateTimeToJson(instance.timestamp),
       'value': instance.value,
       'label': instance.label,
       'metadata': instance.metadata,

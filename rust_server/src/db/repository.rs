@@ -8,6 +8,7 @@ use sqlx::types::JsonValue;
 use sqlx::{Row, QueryBuilder};
 use tracing::debug;
 //use std::str::FromStr;
+use crate::api::servers::ResourceHistory;
 
 #[derive(Clone)]
 pub struct Repository {
@@ -195,6 +196,58 @@ impl Repository {
         .await?;
     
         Ok(result.id)
+    }
+
+
+    pub async fn get_server_metrics_history(
+        &self, 
+        server_id: &str,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>
+    ) -> Result<Vec<ResourceHistory>> {
+        let metrics = sqlx::query!(
+            r#"
+            WITH time_series AS (
+                SELECT generate_series($2, $3, '1 minute'::interval) as ts
+            ),
+            metrics_with_intervals AS (
+                SELECT 
+                    ts,
+                    cpu_usage,
+                    memory_usage,
+                    disk_usage,
+                    network_rx + network_tx as network_total
+                FROM time_series
+                LEFT JOIN metrics_snapshots ms 
+                    ON ms.server_id = $1 
+                    AND ms.timestamp <= ts 
+                    AND ms.timestamp > ts - '1 minute'::interval
+                ORDER BY ts DESC
+            )
+            SELECT 
+                ts as "timestamp!",
+                COALESCE(cpu_usage, 0.0) as "cpu!: f64",
+                COALESCE(memory_usage, 0.0) as "memory!: f64",
+                COALESCE(disk_usage, 0.0) as "disk!: f64",
+                COALESCE(network_total, 0) as "network!: i64"
+            FROM metrics_with_intervals
+            WHERE ts >= $2 AND ts <= $3
+            ORDER BY ts ASC
+            "#,
+            server_id,
+            from,
+            to
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(metrics.into_iter().map(|row| ResourceHistory {
+            timestamp: row.timestamp,
+            cpu: row.cpu,
+            memory: row.memory,
+            disk: row.disk,
+            network: format!("{} B/s", row.network),
+        }).collect())
     }
 
     pub async fn get_recent_server_logs(&self, server_id: &str, limit: i64) -> Result<Vec<LogEntry>> {

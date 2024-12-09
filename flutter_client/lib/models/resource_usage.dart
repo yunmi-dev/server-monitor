@@ -5,63 +5,60 @@ import 'package:flutter_client/models/time_series_data.dart';
 part 'resource_usage.freezed.dart';
 part 'resource_usage.g.dart';
 
+List<Map<String, dynamic>> _historyToJson(List<TimeSeriesData> history) {
+  return history.map((data) => data.toJson()).toList();
+}
+
+List<TimeSeriesData> _historyFromJson(List<dynamic> jsonList) {
+  return jsonList
+      .map((json) => TimeSeriesData.fromJson(json as Map<String, dynamic>))
+      .toList();
+}
+
 @freezed
 class ResourceUsage with _$ResourceUsage {
-  const ResourceUsage._(); // Custom getters를 위한 private constructor
+  const ResourceUsage._();
 
+  @JsonSerializable(explicitToJson: true)
   const factory ResourceUsage({
-    required double cpu,
-    required double memory,
-    required double disk,
-    required String network,
-    @Default([]) List<TimeSeriesData> history,
+    @JsonKey(defaultValue: 0.0) required double cpu,
+    @JsonKey(defaultValue: 0.0) required double memory,
+    @JsonKey(defaultValue: 0.0) required double disk,
+    @JsonKey(defaultValue: '0 B/s') required String network,
+    @JsonKey(toJson: _historyToJson, fromJson: _historyFromJson)
+    @Default([])
+    List<TimeSeriesData> history,
     DateTime? lastUpdated,
   }) = _ResourceUsage;
 
   factory ResourceUsage.fromJson(Map<String, dynamic> json) =>
       _$ResourceUsageFromJson(json);
 
-  // CPU, Memory, Disk 사용량을 직접 반환하는 getter들
   double get cpuUsage => cpu;
   double get memoryUsage => memory;
   double get diskUsage => disk;
-
-  // 네트워크 사용량은 이미 formatted string으로 저장되어 있음
   String get networkUsage => network;
 
-  /// CPU 사용량이 경고 수준인지 확인
   bool get isCpuWarning => cpu >= 80;
-
-  /// 메모리 사용량이 경고 수준인지 확인
   bool get isMemoryWarning => memory >= 80;
-
-  /// 디스크 사용량이 경고 수준인지 확인
   bool get isDiskWarning => disk >= 90;
-
-  /// 전체적으로 경고 상태인지 확인
   bool get hasWarning => isCpuWarning || isMemoryWarning || isDiskWarning;
 
-  /// CPU 사용량 히스토리
   List<TimeSeriesData> get cpuHistory =>
       history.where((data) => data.metadata?['type'] == 'cpu').toList();
 
-  /// 메모리 사용량 히스토리
   List<TimeSeriesData> get memoryHistory =>
       history.where((data) => data.metadata?['type'] == 'memory').toList();
 
-  /// 디스크 사용량 히스토리
   List<TimeSeriesData> get diskHistory =>
       history.where((data) => data.metadata?['type'] == 'disk').toList();
 
-  /// 네트워크 사용량 히스토리
   List<TimeSeriesData> get networkHistory =>
       history.where((data) => data.metadata?['type'] == 'network').toList();
 
-  /// 마지막 업데이트로부터의 경과 시간
   Duration get timeSinceLastUpdate =>
       DateTime.now().difference(lastUpdated ?? DateTime.now());
 
-  /// 새로운 데이터 포인트 추가
   ResourceUsage addDataPoint({
     double? cpuValue,
     double? memoryValue,
@@ -110,7 +107,6 @@ class ResourceUsage with _$ResourceUsage {
     );
   }
 
-  /// 지정된 기간의 데이터만 유지
   ResourceUsage trimHistory(Duration duration) {
     final cutoff = DateTime.now().subtract(duration);
     return copyWith(
@@ -118,7 +114,6 @@ class ResourceUsage with _$ResourceUsage {
     );
   }
 
-  /// 빈 리소스 사용량 객체 생성
   factory ResourceUsage.empty() => const ResourceUsage(
         cpu: 0,
         memory: 0,

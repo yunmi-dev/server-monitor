@@ -17,7 +17,6 @@ class ServerListScreen extends StatefulWidget {
 class _ServerListScreenState extends State<ServerListScreen> {
   final TextEditingController _searchController = TextEditingController();
   final List<String> _selectedFilters = [];
-  List<Server> _filteredServers = [];
   int _selectedIndex = 2;
   //bool _showBottomBar = true;
 
@@ -28,48 +27,7 @@ class _ServerListScreenState extends State<ServerListScreen> {
   }
 
   void _filterServers(List<Server> servers, String query) {
-    setState(() {
-      _filteredServers = servers.where((server) {
-        final nameMatch =
-            server.name.toLowerCase().contains(query.toLowerCase());
-        final hostMatch =
-            server.host?.toLowerCase().contains(query.toLowerCase()) ?? false;
-        final typeMatch =
-            server.type.displayName.toLowerCase().contains(query.toLowerCase());
-        final categoryMatch = server.category.displayName
-            .toLowerCase()
-            .contains(query.toLowerCase());
-
-        bool matchesFilters = true;
-        for (final filter in _selectedFilters) {
-          switch (filter) {
-            case 'Online':
-              matchesFilters &= server.status == ServerStatus.online;
-              break;
-            case 'Offline':
-              matchesFilters &= server.status == ServerStatus.offline;
-              break;
-            case 'Warning':
-              matchesFilters &= server.status == ServerStatus.warning;
-              break;
-            case 'Critical':
-              matchesFilters &= server.status == ServerStatus.critical;
-              break;
-            case 'High CPU':
-              matchesFilters &= server.resources.cpuUsage > 80;
-              break;
-            case 'High Memory':
-              matchesFilters &= server.resources.memoryUsage > 80;
-              break;
-            case 'High Disk':
-              matchesFilters &= server.resources.diskUsage > 80;
-              break;
-          }
-        }
-        return (nameMatch || hostMatch || typeMatch || categoryMatch) &&
-            matchesFilters;
-      }).toList();
-    });
+    setState(() {});
   }
 
   @override

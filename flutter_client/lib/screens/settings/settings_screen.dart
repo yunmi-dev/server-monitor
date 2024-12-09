@@ -222,7 +222,7 @@ class SettingsScreen extends StatelessWidget {
 
   Widget _buildAlertSettings(BuildContext context, SettingsProvider settings) {
     return SettingsSection(
-      title: '알림 기준',
+      title: '알림 경계',
       backgroundColor: const Color(0xFF1E1E1E),
       titleStyle: const TextStyle(
         color: Colors.white,
@@ -232,7 +232,7 @@ class SettingsScreen extends StatelessWidget {
       children: [
         _buildSliderTile(
           context: context,
-          title: 'CPU 사용량 기준',
+          title: 'CPU 사용량',
           value: settings.cpuWarningThreshold,
           min: 50,
           max: 90,
@@ -240,7 +240,7 @@ class SettingsScreen extends StatelessWidget {
         ),
         _buildSliderTile(
           context: context,
-          title: '메모리 사용량 기준',
+          title: '메모리 사용량',
           value: settings.memoryWarningThreshold,
           min: 50,
           max: 90,
@@ -248,7 +248,7 @@ class SettingsScreen extends StatelessWidget {
         ),
         _buildSliderTile(
           context: context,
-          title: '디스크 공간 기준',
+          title: '디스크 공간',
           value: settings.diskWarningThreshold,
           min: 70,
           max: 95,
@@ -302,21 +302,23 @@ class SettingsScreen extends StatelessWidget {
     return SettingsSection(
       backgroundColor: const Color(0xFF1E1E1E),
       titleStyle: const TextStyle(
-        color: Colors.red,
+        color: Color.fromARGB(255, 255, 92, 81),
         fontSize: 18,
         fontWeight: FontWeight.bold,
       ),
       children: [
         _buildSettingsTile(
           title: '설정 초기화',
-          titleStyle: const TextStyle(color: Colors.red),
-          trailing: const Icon(Icons.warning, color: Colors.red),
+          titleStyle: const TextStyle(color: Color.fromARGB(255, 255, 92, 81)),
+          trailing: const Icon(Icons.warning,
+              color: Color.fromARGB(255, 255, 92, 81)),
           onTap: () => _showResetDialog(context),
         ),
         _buildSettingsTile(
           title: '계정 삭제',
-          titleStyle: const TextStyle(color: Colors.red),
-          trailing: const Icon(Icons.delete_forever, color: Colors.red),
+          titleStyle: const TextStyle(color: Color.fromARGB(255, 255, 92, 81)),
+          trailing: const Icon(Icons.delete_forever,
+              color: Color.fromARGB(255, 255, 92, 81)),
           onTap: () {
             showDialog(
               context: context,
@@ -385,7 +387,7 @@ class SettingsScreen extends StatelessWidget {
             divisions: ((max - min) ~/ 5).toInt(),
             label: '${value.round()}%',
             onChanged: onChanged,
-            activeColor: const Color.fromARGB(255, 255, 37, 110),
+            activeColor: const Color.fromARGB(255, 255, 37, 110), //TODO
             inactiveColor: Colors.grey.withOpacity(0.3),
           ),
           Text(

@@ -20,10 +20,15 @@ ResourceUsage _$ResourceUsageFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$ResourceUsage {
+  @JsonKey(defaultValue: 0.0)
   double get cpu => throw _privateConstructorUsedError;
+  @JsonKey(defaultValue: 0.0)
   double get memory => throw _privateConstructorUsedError;
+  @JsonKey(defaultValue: 0.0)
   double get disk => throw _privateConstructorUsedError;
+  @JsonKey(defaultValue: '0 B/s')
   String get network => throw _privateConstructorUsedError;
+  @JsonKey(toJson: _historyToJson, fromJson: _historyFromJson)
   List<TimeSeriesData> get history => throw _privateConstructorUsedError;
   DateTime? get lastUpdated => throw _privateConstructorUsedError;
 
@@ -44,10 +49,11 @@ abstract class $ResourceUsageCopyWith<$Res> {
       _$ResourceUsageCopyWithImpl<$Res, ResourceUsage>;
   @useResult
   $Res call(
-      {double cpu,
-      double memory,
-      double disk,
-      String network,
+      {@JsonKey(defaultValue: 0.0) double cpu,
+      @JsonKey(defaultValue: 0.0) double memory,
+      @JsonKey(defaultValue: 0.0) double disk,
+      @JsonKey(defaultValue: '0 B/s') String network,
+      @JsonKey(toJson: _historyToJson, fromJson: _historyFromJson)
       List<TimeSeriesData> history,
       DateTime? lastUpdated});
 }
@@ -112,10 +118,11 @@ abstract class _$$ResourceUsageImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {double cpu,
-      double memory,
-      double disk,
-      String network,
+      {@JsonKey(defaultValue: 0.0) double cpu,
+      @JsonKey(defaultValue: 0.0) double memory,
+      @JsonKey(defaultValue: 0.0) double disk,
+      @JsonKey(defaultValue: '0 B/s') String network,
+      @JsonKey(toJson: _historyToJson, fromJson: _historyFromJson)
       List<TimeSeriesData> history,
       DateTime? lastUpdated});
 }
@@ -170,13 +177,15 @@ class __$$ResourceUsageImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(explicitToJson: true)
 class _$ResourceUsageImpl extends _ResourceUsage {
   const _$ResourceUsageImpl(
-      {required this.cpu,
-      required this.memory,
-      required this.disk,
-      required this.network,
+      {@JsonKey(defaultValue: 0.0) required this.cpu,
+      @JsonKey(defaultValue: 0.0) required this.memory,
+      @JsonKey(defaultValue: 0.0) required this.disk,
+      @JsonKey(defaultValue: '0 B/s') required this.network,
+      @JsonKey(toJson: _historyToJson, fromJson: _historyFromJson)
       final List<TimeSeriesData> history = const [],
       this.lastUpdated})
       : _history = history,
@@ -186,16 +195,20 @@ class _$ResourceUsageImpl extends _ResourceUsage {
       _$$ResourceUsageImplFromJson(json);
 
   @override
+  @JsonKey(defaultValue: 0.0)
   final double cpu;
   @override
+  @JsonKey(defaultValue: 0.0)
   final double memory;
   @override
+  @JsonKey(defaultValue: 0.0)
   final double disk;
   @override
+  @JsonKey(defaultValue: '0 B/s')
   final String network;
   final List<TimeSeriesData> _history;
   @override
-  @JsonKey()
+  @JsonKey(toJson: _historyToJson, fromJson: _historyFromJson)
   List<TimeSeriesData> get history {
     if (_history is EqualUnmodifiableListView) return _history;
     // ignore: implicit_dynamic_type
@@ -247,10 +260,11 @@ class _$ResourceUsageImpl extends _ResourceUsage {
 
 abstract class _ResourceUsage extends ResourceUsage {
   const factory _ResourceUsage(
-      {required final double cpu,
-      required final double memory,
-      required final double disk,
-      required final String network,
+      {@JsonKey(defaultValue: 0.0) required final double cpu,
+      @JsonKey(defaultValue: 0.0) required final double memory,
+      @JsonKey(defaultValue: 0.0) required final double disk,
+      @JsonKey(defaultValue: '0 B/s') required final String network,
+      @JsonKey(toJson: _historyToJson, fromJson: _historyFromJson)
       final List<TimeSeriesData> history,
       final DateTime? lastUpdated}) = _$ResourceUsageImpl;
   const _ResourceUsage._() : super._();
@@ -259,14 +273,19 @@ abstract class _ResourceUsage extends ResourceUsage {
       _$ResourceUsageImpl.fromJson;
 
   @override
+  @JsonKey(defaultValue: 0.0)
   double get cpu;
   @override
+  @JsonKey(defaultValue: 0.0)
   double get memory;
   @override
+  @JsonKey(defaultValue: 0.0)
   double get disk;
   @override
+  @JsonKey(defaultValue: '0 B/s')
   String get network;
   @override
+  @JsonKey(toJson: _historyToJson, fromJson: _historyFromJson)
   List<TimeSeriesData> get history;
   @override
   DateTime? get lastUpdated;

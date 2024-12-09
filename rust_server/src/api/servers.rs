@@ -274,8 +274,14 @@ pub async fn get_server_status(
     // 모니터링 서비스에서 메트릭 가져오기
     let metrics = monitoring.get_server_metrics(&server_id).await;
     println!("Got metrics for {}: {:?}", server_id, metrics);
-    
+
     let now = chrono::Utc::now();
+    let one_hour_ago = now - chrono::Duration::hours(1);
+
+    // 과거 1시간 동안의 메트릭스 히스토리 가져오기
+    let history = repo.get_server_metrics_history(&server_id, one_hour_ago, now)
+        .await
+        .unwrap_or_default();
     
     let response = json!({
         "id": server.id,
@@ -289,7 +295,7 @@ pub async fn get_server_status(
                 "0 B/s".to_string(), 
                 |m| format!("{} B/s", (m.network_rx + m.network_tx) / 2)
             ),
-            "history": [],
+            "history": history,  // 히스토리 데이터 추가
             "lastUpdated": now.to_rfc3339()
         },
         "uptime": "0s",

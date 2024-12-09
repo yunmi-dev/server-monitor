@@ -20,6 +20,7 @@ TimeSeriesData _$TimeSeriesDataFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$TimeSeriesData {
+  @JsonKey(toJson: _dateTimeToJson, fromJson: _dateTimeFromJson)
   DateTime get timestamp => throw _privateConstructorUsedError;
   double get value => throw _privateConstructorUsedError;
   String? get label => throw _privateConstructorUsedError;
@@ -42,7 +43,8 @@ abstract class $TimeSeriesDataCopyWith<$Res> {
       _$TimeSeriesDataCopyWithImpl<$Res, TimeSeriesData>;
   @useResult
   $Res call(
-      {DateTime timestamp,
+      {@JsonKey(toJson: _dateTimeToJson, fromJson: _dateTimeFromJson)
+      DateTime timestamp,
       double value,
       String? label,
       Map<String, dynamic>? metadata});
@@ -98,7 +100,8 @@ abstract class _$$TimeSeriesDataImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {DateTime timestamp,
+      {@JsonKey(toJson: _dateTimeToJson, fromJson: _dateTimeFromJson)
+      DateTime timestamp,
       double value,
       String? label,
       Map<String, dynamic>? metadata});
@@ -144,11 +147,13 @@ class __$$TimeSeriesDataImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(explicitToJson: true)
 class _$TimeSeriesDataImpl implements _TimeSeriesData {
   const _$TimeSeriesDataImpl(
-      {required this.timestamp,
-      required this.value,
+      {@JsonKey(toJson: _dateTimeToJson, fromJson: _dateTimeFromJson)
+      required this.timestamp,
+      this.value = 0.0,
       this.label,
       final Map<String, dynamic>? metadata})
       : _metadata = metadata;
@@ -157,8 +162,10 @@ class _$TimeSeriesDataImpl implements _TimeSeriesData {
       _$$TimeSeriesDataImplFromJson(json);
 
   @override
+  @JsonKey(toJson: _dateTimeToJson, fromJson: _dateTimeFromJson)
   final DateTime timestamp;
   @override
+  @JsonKey()
   final double value;
   @override
   final String? label;
@@ -213,8 +220,9 @@ class _$TimeSeriesDataImpl implements _TimeSeriesData {
 
 abstract class _TimeSeriesData implements TimeSeriesData {
   const factory _TimeSeriesData(
-      {required final DateTime timestamp,
-      required final double value,
+      {@JsonKey(toJson: _dateTimeToJson, fromJson: _dateTimeFromJson)
+      required final DateTime timestamp,
+      final double value,
       final String? label,
       final Map<String, dynamic>? metadata}) = _$TimeSeriesDataImpl;
 
@@ -222,6 +230,7 @@ abstract class _TimeSeriesData implements TimeSeriesData {
       _$TimeSeriesDataImpl.fromJson;
 
   @override
+  @JsonKey(toJson: _dateTimeToJson, fromJson: _dateTimeFromJson)
   DateTime get timestamp;
   @override
   double get value;
