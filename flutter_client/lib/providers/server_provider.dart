@@ -49,25 +49,25 @@ class ServerProvider with ChangeNotifier {
   // 메트릭스 업데이트 처리
 // lib/providers/server_provider.dart의 _handleMetricsUpdate 함수 수정 TODO debug
   void _handleMetricsUpdate(ServerMetrics metrics) {
-    print('Received metrics update for server: ${metrics.serverId}'); // 로그 추가
-    print(
-        'Metrics values - CPU: ${metrics.cpuUsage}, Memory: ${metrics.memoryUsage}'); // 로그 추가
-
-    _serverMetrics[metrics.serverId] = metrics;
+    print('Handling metrics update');
+    print('Server ID: ${metrics.serverId}');
+    print('Current servers: ${_servers.map((s) => '${s.id}: ${s.type}')}');
 
     final serverIndex = _servers.indexWhere((s) => s.id == metrics.serverId);
-    print('Found server at index: $serverIndex'); // 로그 추가
+    print('Found server index: $serverIndex');
 
     if (serverIndex != -1) {
-      _servers[serverIndex] = _servers[serverIndex].copyWith(
-        resources: ResourceUsage(
-          cpu: metrics.cpuUsage,
-          memory: metrics.memoryUsage,
-          disk: metrics.diskUsage,
-          network: '${metrics.networkUsage}MB/s',
-          lastUpdated: metrics.timestamp,
-        ),
+      final oldResources = _servers[serverIndex].resources;
+      print('Old resources: ${oldResources.toJson()}');
+
+      final newResources = ResourceUsage(
+        cpu: metrics.cpuUsage,
+        memory: metrics.memoryUsage,
+        disk: metrics.diskUsage,
+        network: '${metrics.networkUsage}MB/s',
+        lastUpdated: metrics.timestamp,
       );
+      print('New resources: ${newResources.toJson()}');
       print(
           'Updated server resources: ${_servers[serverIndex].resources}'); // 로그 추가
       notifyListeners();

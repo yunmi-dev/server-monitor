@@ -9,7 +9,7 @@ use std::time::Duration;
 use std::fmt;
 use serde_json::json;
 use tracing::{debug, info};
-use crate::db::{models::{Server, ServerType}, repository::Repository};
+use crate::db::{models::{Server, ServerType, ServerCategory}, repository::Repository};
 use crate::models::logs::LogEntry;
 use crate::config::ServerConfig;
 use crate::utils::encryption::Encryptor;
@@ -30,8 +30,7 @@ pub struct CreateServerRequest {
     pub password: String,
     #[serde(rename = "type")]
     pub server_type: ServerType,
-    #[serde(skip)]
-    pub category: Option<String>,
+    pub category: ServerCategory,
 }
 
 #[derive(serde::Deserialize)]
@@ -307,8 +306,8 @@ pub async fn get_server_status(
         "hostname": server.hostname,
         "port": server.port,
         "username": server.username,
-        "type": "linux",
-        "category": "physical"
+        "type": server.server_type.to_string(),
+        "category": server.category.to_string()
     });
 
     println!("Sending response for {}: {}", server_id, response);

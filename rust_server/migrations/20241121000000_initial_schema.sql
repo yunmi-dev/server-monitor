@@ -4,7 +4,13 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Enum types
 DO $$ BEGIN
-    CREATE TYPE server_type AS ENUM ('physical', 'virtual', 'container', 'linux');
+    -- OS type (서버의 운영체제 타입)
+    CREATE TYPE server_type AS ENUM ('linux', 'macos', 'windows');
+    
+    -- Server category (서버의 물리적 타입)
+    CREATE TYPE server_category AS ENUM ('physical', 'virtual', 'container');
+    
+    -- 기존 enum들
     CREATE TYPE alert_severity AS ENUM ('info', 'warning', 'critical');
     CREATE TYPE user_role AS ENUM ('admin', 'user', 'viewer');
     CREATE TYPE metric_type AS ENUM ('cpu', 'memory', 'disk', 'network');
@@ -12,7 +18,7 @@ DO $$ BEGIN
     CREATE TYPE log_level AS ENUM ('debug', 'info', 'warning', 'alert', 'critical');
 EXCEPTION 
     WHEN duplicate_object THEN 
-        ALTER TYPE server_type ADD VALUE IF NOT EXISTS 'linux';
+        NULL; -- 이미 존재하면 무시
 END $$;
 
 -- Users table
@@ -41,7 +47,8 @@ CREATE TABLE IF NOT EXISTS servers (
     encrypted_password TEXT NOT NULL,
     location VARCHAR(255) DEFAULT 'Unknown',
     description TEXT,
-    server_type server_type NOT NULL,
+    server_type server_type NOT NULL DEFAULT 'linux',
+    server_category server_category NOT NULL DEFAULT 'physical', -- 새로 추가
     is_online BOOLEAN NOT NULL DEFAULT false,
     last_seen_at TIMESTAMPTZ,
     metadata JSONB DEFAULT '{}',

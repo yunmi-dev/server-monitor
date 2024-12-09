@@ -41,25 +41,46 @@ macro_rules! impl_common_traits {
 #[sqlx(rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum ServerType {
-    Physical,
-    Virtual,
-    Container,
-    Linux
+    Linux,
+    MacOS,
+    Windows
 }
 
 impl Default for ServerType {
     fn default() -> Self {
-        ServerType::Physical
+        ServerType::Linux
     }
 }
 
-// ServerType에 대한 common traits 구현 (한 번만 적용)
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone, PartialEq)]
+#[sqlx(type_name = "server_category")]
+#[sqlx(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum ServerCategory {
+    Physical,
+    Virtual,
+    Container
+}
+
+impl Default for ServerCategory {
+    fn default() -> Self {
+        ServerCategory::Physical
+    }
+}
+
+// Common traits 구현
 impl_common_traits!(ServerType, {
+    Linux => "linux",
+    MacOS => "macos",
+    Windows => "windows"
+});
+
+impl_common_traits!(ServerCategory, {
     Physical => "physical",
     Virtual => "virtual",
-    Container => "container",
-    Linux => "linux"
+    Container => "container"
 });
+
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Server {
@@ -74,6 +95,7 @@ pub struct Server {
     pub description: Option<String>,
     #[sqlx(rename = "server_type")]
     pub server_type: ServerType,
+    pub category: ServerCategory,
     pub is_online: bool,
     pub last_seen_at: Option<DateTime<Utc>>,
     pub metadata: Option<JsonValue>,
@@ -95,6 +117,7 @@ impl Default for Server {
             location: Some("Unknown".to_string()), 
             description: None,
             server_type: ServerType::default(),
+            category: ServerCategory::default(),
             is_online: false,
             last_seen_at: None,
             metadata: Some(serde_json::json!({})),

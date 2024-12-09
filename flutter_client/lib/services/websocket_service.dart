@@ -34,9 +34,15 @@ class WebSocketService {
 // lib/services/websocket_service.dart의 _handleMessage 함수 수정 TODO debug
   void _handleMessage(dynamic message) {
     try {
-      print('WebSocket received raw message: $message'); // 로그 추가
+      print('Raw WebSocket message type: ${message.runtimeType}');
       final data = jsonDecode(message as String);
-      print('Decoded WebSocket message: $data'); // 로그 추가
+      print('Message type: ${data['type']}');
+      print('Full message data: $data');
+
+      if (data['type'] == 'resource_metrics') {
+        print('Resource metrics data structure: ${data['data']}');
+        // 메트릭스 데이터의 구조와 값들을 자세히 출력
+      }
 
       final socketMessage = SocketMessage(
         type: _getMessageType(data['type'] as String?),

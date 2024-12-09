@@ -20,20 +20,21 @@ impl Repository {
     }
 
     pub async fn create_server(&self, server: Server) -> Result<Server> {
-        debug!("Creating server with data: {:?}", server);  // 추가
+        debug!("Creating server with data: {:?}", server);
         let result = sqlx::query_as!(
             Server,
             r#"
             INSERT INTO servers 
             (id, name, hostname, ip_address, port, username, encrypted_password,
-             location, description, server_type, is_online, last_seen_at, 
+             location, description, server_type, server_category, is_online, last_seen_at, 
              metadata, created_by, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text::server_type, 
-                    $11, $12, $13, $14, $15, $16)
+                    $11::text::server_category, $12, $13, $14, $15, $16, $17)
             RETURNING 
                 id, name, hostname, ip_address, port, username, encrypted_password,
                 location, description,
                 server_type as "server_type: ServerType",
+                server_category as "category: ServerCategory",
                 is_online, last_seen_at, metadata, created_by, created_at, updated_at
             "#,
             server.id,
@@ -46,6 +47,7 @@ impl Repository {
             server.location,
             server.description,
             server.server_type.to_string(),
+            server.category.to_string(),
             server.is_online,
             server.last_seen_at,
             server.metadata,
@@ -59,7 +61,7 @@ impl Repository {
         debug!("Server created: {:?}", result);
         Ok(result)
     }
-    
+
     pub async fn get_server(&self, id: &str) -> Result<Option<Server>> {
         let result = sqlx::query_as!(
             Server,
@@ -68,6 +70,7 @@ impl Repository {
                 id, name, hostname, ip_address, port, username, encrypted_password,
                 location, description,
                 server_type as "server_type: ServerType",
+                server_category as "category: ServerCategory",
                 is_online, last_seen_at, metadata, created_by, created_at, updated_at
             FROM servers 
             WHERE id = $1
@@ -88,6 +91,7 @@ impl Repository {
                 id, name, hostname, ip_address, port, username, encrypted_password,
                 location, description,
                 server_type as "server_type: ServerType",
+                server_category as "category: ServerCategory",
                 is_online, last_seen_at, metadata, created_by, created_at, updated_at
             FROM servers 
             ORDER BY created_at DESC
@@ -107,6 +111,7 @@ impl Repository {
                 id, name, hostname, ip_address, port, username, encrypted_password,
                 location, description,
                 server_type as "server_type: ServerType",
+                server_category as "category: ServerCategory",
                 is_online, last_seen_at, metadata, created_by, created_at, updated_at
             FROM servers 
             WHERE created_by = $1
@@ -126,6 +131,7 @@ impl Repository {
                 id, name, hostname, ip_address, port, username, encrypted_password,
                 location, description,
                 server_type as "server_type: ServerType",
+                server_category as "category: ServerCategory",
                 is_online, last_seen_at, metadata, created_by, created_at, updated_at
             FROM servers 
             WHERE LOWER(hostname) = LOWER($1)
@@ -223,7 +229,7 @@ impl Repository {
             component: row.component,
             server_id: row.server_id,
             timestamp: row.timestamp,
-            metadata: row.metadata.into(),  // Option<JsonValue>를 LogMetadata로 변환
+            metadata: row.metadata.into(), 
             stack_trace: row.stack_trace,
             source_location: row.source_location,
             correlation_id: row.correlation_id,

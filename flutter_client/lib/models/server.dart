@@ -45,6 +45,13 @@ class Server {
 
   factory Server.fromJson(Map<String, dynamic> json) {
     print('Server fromJson raw data: $json'); // 로깅 추가 TODO
+    print('Server type from JSON: ${json['server_type'] ?? json['type']}');
+    print('Raw server type value: ${json['type']}');
+
+    final serverType = json['type'] != null
+        ? ServerType.fromJson(json['type'])
+        : ServerType.linux;
+    print('Converted server type: $serverType');
 
     try {
       // id 처리
