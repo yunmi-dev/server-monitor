@@ -1,10 +1,10 @@
-# 인증 흐름도
+# Sequence Diagram
 
 ## 개요
 
 본 문서는 애플리케이션의 인증 시스템 흐름을 설명합니다.
 
-## 인증 흐름도
+## Sequence Diagram
 
 ```mermaid
 sequenceDiagram
