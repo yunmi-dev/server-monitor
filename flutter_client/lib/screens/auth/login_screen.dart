@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/providers/auth_provider.dart';
-import 'package:flutter_client/widgets/auth/social_login_button.dart';
+import 'package:flutter_client/widgets/auth/unified_social_login.dart';
 import 'package:flutter_client/utils/validation_utils.dart';
 import 'package:flutter_client/utils/snackbar_utils.dart';
 
@@ -100,48 +100,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildSocialLoginButtons() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacing),
-      child: Column(
-        children: [
-          SocialLoginButton(
-            provider: 'apple',
-            onPressed: () => _handleSocialLogin('apple'),
-            backgroundColor: Colors.black,
-            textColor: Colors.white,
-            iconPath: 'assets/icons/apple.png',
-            text: 'Apple로 계속하기',
-          ),
-          const SizedBox(height: 8),
-          SocialLoginButton(
-            provider: 'kakao',
-            onPressed: () => _handleSocialLogin('kakao'),
-            backgroundColor: const Color(0xFFFEE500),
-            textColor: Colors.black87,
-            iconPath: 'assets/icons/kakao.png',
-            text: '카카오로 계속하기',
-          ),
-          const SizedBox(height: 8),
-          SocialLoginButton(
-            provider: 'google',
-            onPressed: () => _handleSocialLogin('google'),
-            backgroundColor: Colors.white,
-            textColor: Colors.black87,
-            iconPath: 'assets/icons/google.png',
-            text: 'Google로 계속하기',
-          ),
-          const SizedBox(height: 8),
-          SocialLoginButton(
-            provider: 'facebook',
-            onPressed: () => _handleSocialLogin('facebook'),
-            backgroundColor: const Color(0xFF1877F2),
-            textColor: Colors.white,
-            iconPath: 'assets/icons/facebook.png',
-            text: 'Facebook으로 계속하기',
-          ),
-        ],
-      ),
-    );
+    return const UnifiedSocialLogin();
   }
 
   Widget _buildLoginForm() {

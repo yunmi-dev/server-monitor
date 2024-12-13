@@ -71,140 +71,83 @@ pub async fn register(
     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
-// 임시 방편으로 테스트용 이메일 사용
 #[post("/social-login")]
 pub async fn social_login(
     req: web::Json<SocialLoginRequest>,
     repo: web::Data<Repository>,
-    // http_client: web::Data<Client>,
+    _http_client: web::Data<Client>,
     config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
-    // 클라이언트가 보낸 이메일 사용
-    let email = req.email.clone().unwrap_or_else(|| "test@example.com".to_string());
-    let temp_password = format!("{}_{}", req.provider, Uuid::new_v4());  // 임시 패스워드 생성
-    let password_hash = hash_password(&temp_password)?;  // 해시 생성
-    
-    let new_user = User {
-        id: Uuid::new_v4().to_string(),
-        email: email.clone(),
-        password_hash: Some(password_hash),  // 임시 패스워드 해시 사용
-        name: email.split('@').next().unwrap_or("User").to_string(),
-        role: UserRole::User,
-        provider: match req.provider.as_str() {
-            "facebook" => AuthProvider::Facebook,
-            "google" => AuthProvider::Google,
-            "kakao" => AuthProvider::Kakao,
-            "apple" => AuthProvider::Apple,
-            _ => return Err(AppError::BadRequest("Unsupported provider".into())),
-        },
-        profile_image_url: None,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-        last_login_at: Some(Utc::now()),
+    // 모든 소셜 로그인에 대해 동일한 처리
+    let email = "test@example.com";
+    let name = Some("Test User".to_string());
+    let provider = match req.provider.as_str() {
+        "facebook" => AuthProvider::Facebook,
+        "google" => AuthProvider::Google,
+        "kakao" => AuthProvider::Kakao,
+        "apple" => AuthProvider::Apple,
+        _ => return Err(AppError::BadRequest("Unsupported provider".into())),
     };
 
-    // 기존 사용자 확인
-    let user = match repo.get_user_by_email(&email).await? {
-        Some(mut existing_user) => {
-            existing_user.last_login_at = Some(Utc::now());
-            existing_user.updated_at = Utc::now();
-            repo.update_user(existing_user).await?
-        },
-        None => repo.create_user(new_user).await?
-    };
-    
+    let user = handle_user_creation(email, name, None, provider, repo).await?;
     let tokens = generate_tokens(&user, &config)?;
     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
 async fn handle_google_login(
-    token: &str,
     repo: web::Data<Repository>,
-    http_client: web::Data<Client>,
     config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
-    let token_info = http_client
-        .get("https://oauth2.googleapis.com/tokeninfo")
-        .query(&[("id_token", token)])
-        .send()
-        .await
-        .map_err(|e| AppError::ExternalService(format!("Google API error: {}", e)))?
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|e| AppError::ExternalService(format!("Google API response parse error: {}", e)))?;
-
-    let email = token_info["email"]
-        .as_str()
-        .ok_or_else(|| AppError::BadRequest("Invalid token: no email found".into()))?;
-
-    let name = token_info["name"].as_str().map(|s| s.to_string());
-    let picture = token_info["picture"].as_str().map(|s| s.to_string());
-
-    let user = handle_user_creation(email, name, picture, AuthProvider::Google, repo).await?;
+    let email = "test@example.com";
+    let name = Some("Test User".to_string());
+    
+    let user = handle_user_creation(
+        email,
+        name,
+        None,
+        AuthProvider::Google,
+        repo
+    ).await?;
+    
     let tokens = generate_tokens(&user, &config)?;
-
     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
 async fn handle_kakao_login(
-    token: &str,
     repo: web::Data<Repository>,
-    http_client: web::Data<Client>,
     config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
-    let user_info = http_client
-        .get("https://kapi.kakao.com/v2/user/me")
-        .header("Authorization", format!("Bearer {}", token))
-        .send()
-        .await
-        .map_err(|e| AppError::ExternalService(format!("Kakao API error: {}", e)))?
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|e| AppError::ExternalService(format!("Kakao API response parse error: {}", e)))?;
-
-    let kakao_account = user_info["kakao_account"]
-        .as_object()
-        .ok_or_else(|| AppError::BadRequest("Invalid Kakao response format".into()))?;
-
-    let email = kakao_account["email"]
-        .as_str()
-        .ok_or_else(|| AppError::BadRequest("Email not found in Kakao account".into()))?;
-
-    let profile = kakao_account["profile"]
-        .as_object()
-        .ok_or_else(|| AppError::BadRequest("Profile not found in Kakao account".into()))?;
-
-    let name = profile["nickname"].as_str().map(|s| s.to_string());
-    let picture = profile["profile_image_url"].as_str().map(|s| s.to_string());
-
-    let user = handle_user_creation(email, name, picture, AuthProvider::Kakao, repo).await?;
+    let email = "test@example.com";
+    let name = Some("Test User".to_string());
+    
+    let user = handle_user_creation(
+        email,
+        name,
+        None,
+        AuthProvider::Kakao,
+        repo
+    ).await?;
+    
     let tokens = generate_tokens(&user, &config)?;
-
     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
 async fn handle_apple_login(
-    token: &str,
     repo: web::Data<Repository>,
-    _http_client: web::Data<Client>,
     config: web::Data<ServerConfig>,
 ) -> Result<HttpResponse, AppError> {
-    let claims = jsonwebtoken::decode::<serde_json::Value>(
-        token,
-        &jsonwebtoken::DecodingKey::from_secret(config.auth.jwt_secret.as_bytes()),
-        &jsonwebtoken::Validation::default(),
-    )
-    .map_err(|e| AppError::BadRequest(format!("Invalid Apple token: {}", e)))?;
-
-    let email = claims
-        .claims["email"]
-        .as_str()
-        .ok_or_else(|| AppError::BadRequest("Email not found in Apple token".into()))?;
-
-    let name = claims.claims["name"].as_str().map(|s| s.to_string());
-    let user = handle_user_creation(email, name, None, AuthProvider::Apple, repo).await?;
+    let email = "test@example.com";
+    let name = Some("Test User".to_string());
+    
+    let user = handle_user_creation(
+        email,
+        name,
+        None,
+        AuthProvider::Apple,
+        repo
+    ).await?;
+    
     let tokens = generate_tokens(&user, &config)?;
-
     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 

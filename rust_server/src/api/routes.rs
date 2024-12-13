@@ -23,6 +23,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .service(login)
                     .service(register)
                     .service(social_login)
+                    .service(logout)
             )
             .route("/health", web::get().to(health_check))
             .service(
