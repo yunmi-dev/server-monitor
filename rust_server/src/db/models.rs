@@ -82,7 +82,7 @@ impl_common_traits!(ServerCategory, {
 });
 
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Server {
     pub id: String,
     pub name: String,
@@ -172,7 +172,7 @@ pub struct MetricsSnapshot {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Alert {
     pub id: i64,
     pub server_id: String,

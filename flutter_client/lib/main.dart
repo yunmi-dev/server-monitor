@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_client/app.dart';
 import 'package:flutter_client/config/constants.dart';
 import 'package:flutter_client/services/api_service.dart';
-import 'package:flutter_client/services/auth_service.dart' hide AuthProvider;
+import 'package:flutter_client/services/auth_service.dart';
 import 'package:flutter_client/providers/auth_provider.dart';
 import 'package:flutter_client/providers/server_provider.dart';
 import 'package:flutter_client/providers/settings_provider.dart';

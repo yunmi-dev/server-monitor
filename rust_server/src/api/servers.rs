@@ -20,7 +20,7 @@ use actix_web::error::ErrorInternalServerError;
 use tracing::error;
 
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(rename_all = "lowercase")]
 pub struct CreateServerRequest {
     pub name: String,
@@ -33,7 +33,7 @@ pub struct CreateServerRequest {
     pub category: ServerCategory,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct TestConnectionRequest {
     pub host: String,
     pub port: i32,
@@ -41,7 +41,7 @@ pub struct TestConnectionRequest {
     pub password: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateServerStatusRequest {
     pub is_online: bool,
 }

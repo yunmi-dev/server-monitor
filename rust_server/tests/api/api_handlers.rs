@@ -1,4 +1,4 @@
-// tests/api_handlers_test.rs
+// tests/api/api_handlers.rs
 use actix_web::{test, web, App};
 use mockall::predicate::*;
 use mockall::mock;
@@ -6,10 +6,6 @@ use rust_server::{
     api::{handlers::*, response::ApiResponse},
     models::metrics::{ServerMetrics, ProcessMetrics},
 };
-
-mod common;
-use common::{create_test_user, create_test_config};
-
 
 // MonitoringService 모의 객체 생성
 mock! {

@@ -81,3 +81,5 @@ config = "0.13"
 # 테스트 코드
 mockall = "0.11"
 actix-rt = "2.9" 
+serde_qs = "0.12"
+actix-http = "3.9"

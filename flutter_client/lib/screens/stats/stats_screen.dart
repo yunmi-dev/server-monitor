@@ -229,9 +229,7 @@ class _StatsScreenState extends State<StatsScreen>
                             ),
                             Text(
                               _formatValue(
-                                  type,
-                                  server.resources.valueForType(type) ??
-                                      0.0), // null 체크
+                                  type, server.resources.valueForType(type)),
                               style: TextStyle(
                                 color: color,
                                 fontSize: 18,

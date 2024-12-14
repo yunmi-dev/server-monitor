@@ -1,3 +1,4 @@
+// tests/common/mod.rs
 use rust_server::{
     config::{ServerConfig, AuthConfig},
     db::models::{User, UserRole, AuthProvider},

@@ -1,5 +1,4 @@
 // src/tests/db_test.rs
-
 use rust_server::db;
 
 #[cfg(test)]

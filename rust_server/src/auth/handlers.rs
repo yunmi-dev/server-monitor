@@ -94,85 +94,85 @@ pub async fn social_login(
     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
 }
 
-async fn handle_google_login(
-    repo: web::Data<Repository>,
-    config: web::Data<ServerConfig>,
-) -> Result<HttpResponse, AppError> {
-    let email = "test@example.com";
-    let name = Some("Test User".to_string());
+// async fn handle_google_login(
+//     repo: web::Data<Repository>,
+//     config: web::Data<ServerConfig>,
+// ) -> Result<HttpResponse, AppError> {
+//     let email = "test@example.com";
+//     let name = Some("Test User".to_string());
     
-    let user = handle_user_creation(
-        email,
-        name,
-        None,
-        AuthProvider::Google,
-        repo
-    ).await?;
+//     let user = handle_user_creation(
+//         email,
+//         name,
+//         None,
+//         AuthProvider::Google,
+//         repo
+//     ).await?;
     
-    let tokens = generate_tokens(&user, &config)?;
-    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
-}
+//     let tokens = generate_tokens(&user, &config)?;
+//     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
+// }
 
-async fn handle_kakao_login(
-    repo: web::Data<Repository>,
-    config: web::Data<ServerConfig>,
-) -> Result<HttpResponse, AppError> {
-    let email = "test@example.com";
-    let name = Some("Test User".to_string());
+// async fn handle_kakao_login(
+//     repo: web::Data<Repository>,
+//     config: web::Data<ServerConfig>,
+// ) -> Result<HttpResponse, AppError> {
+//     let email = "test@example.com";
+//     let name = Some("Test User".to_string());
     
-    let user = handle_user_creation(
-        email,
-        name,
-        None,
-        AuthProvider::Kakao,
-        repo
-    ).await?;
+//     let user = handle_user_creation(
+//         email,
+//         name,
+//         None,
+//         AuthProvider::Kakao,
+//         repo
+//     ).await?;
     
-    let tokens = generate_tokens(&user, &config)?;
-    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
-}
+//     let tokens = generate_tokens(&user, &config)?;
+//     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
+// }
 
-async fn handle_apple_login(
-    repo: web::Data<Repository>,
-    config: web::Data<ServerConfig>,
-) -> Result<HttpResponse, AppError> {
-    let email = "test@example.com";
-    let name = Some("Test User".to_string());
+// async fn handle_apple_login(
+//     repo: web::Data<Repository>,
+//     config: web::Data<ServerConfig>,
+// ) -> Result<HttpResponse, AppError> {
+//     let email = "test@example.com";
+//     let name = Some("Test User".to_string());
     
-    let user = handle_user_creation(
-        email,
-        name,
-        None,
-        AuthProvider::Apple,
-        repo
-    ).await?;
+//     let user = handle_user_creation(
+//         email,
+//         name,
+//         None,
+//         AuthProvider::Apple,
+//         repo
+//     ).await?;
     
-    let tokens = generate_tokens(&user, &config)?;
-    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
-}
+//     let tokens = generate_tokens(&user, &config)?;
+//     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
+// }
 
-async fn handle_facebook_login(
-    // token: &str,
-    repo: web::Data<Repository>,
-    // http_client: web::Data<Client>,
-    config: web::Data<ServerConfig>,
-) -> Result<HttpResponse, AppError> {
-    // 클라이언트 데이터에서 이메일을 직접 사용하도록 변경
-    let email = "test@example.com"; // 테스트용 고정 이메일
-    let name = Some("Test User".to_string()); // 테스트용 이름
+// async fn handle_facebook_login(
+//     // token: &str,
+//     repo: web::Data<Repository>,
+//     // http_client: web::Data<Client>,
+//     config: web::Data<ServerConfig>,
+// ) -> Result<HttpResponse, AppError> {
+//     // 클라이언트 데이터에서 이메일을 직접 사용하도록 변경
+//     let email = "test@example.com"; // 테스트용 고정 이메일
+//     let name = Some("Test User".to_string()); // 테스트용 이름
     
-    // 즉시 사용자 생성/업데이트 처리
-    let user = handle_user_creation(
-        email,
-        name,
-        None,
-        AuthProvider::Facebook,
-        repo
-    ).await?;
+//     // 즉시 사용자 생성/업데이트 처리
+//     let user = handle_user_creation(
+//         email,
+//         name,
+//         None,
+//         AuthProvider::Facebook,
+//         repo
+//     ).await?;
     
-    let tokens = generate_tokens(&user, &config)?;
-    Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
-}
+//     let tokens = generate_tokens(&user, &config)?;
+//     Ok(HttpResponse::Ok().json(create_auth_response(user, tokens)))
+// }
 
 #[post("/logout")]
 pub async fn logout(

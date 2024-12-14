@@ -3,11 +3,7 @@ use serde::{Serialize, Deserialize};
 use actix_web::HttpResponse;
 
 #[derive(Serialize, Deserialize)]
-#[serde(bound = "T: Serialize + for<'a> Deserialize<'a>")]
-pub struct ApiResponse<T>
-where
-    T: Serialize,
-{
+pub struct ApiResponse<T> {
     pub success: bool,
     pub error: Option<String>,
     pub message: Option<String>,
@@ -28,7 +24,7 @@ where
     }
 
     pub fn error(error: &str, message: &str) -> HttpResponse {
-        HttpResponse::BadRequest().json(Self {
+        HttpResponse::BadRequest().json(ApiResponse::<T> {
             success: false,
             error: Some(error.to_string()),
             message: Some(message.to_string()),
@@ -37,7 +33,7 @@ where
     }
 
     pub fn not_found(message: &str) -> HttpResponse {
-        HttpResponse::NotFound().json(Self {
+        HttpResponse::NotFound().json(ApiResponse::<T> {
             success: false,
             error: Some("Resource not found".to_string()),
             message: Some(message.to_string()),
@@ -46,7 +42,7 @@ where
     }
 
     pub fn unauthorized(message: &str) -> HttpResponse {
-        HttpResponse::Unauthorized().json(Self {
+        HttpResponse::Unauthorized().json(ApiResponse::<T> {
             success: false,
             error: Some("Authentication failed".to_string()),
             message: Some(message.to_string()),
@@ -55,12 +51,23 @@ where
     }
 }
 
-// 테스트용 응답 구조체
 #[cfg(test)]
-#[derive(Serialize, Deserialize)]
-pub struct TestResponse {
-    pub success: bool,
-    pub error: Option<String>,
-    pub message: Option<String>,
-    pub data: Option<serde_json::Value>,
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_response_serialization() {
+        let response: ApiResponse<String> = ApiResponse {
+            success: true,
+            error: None,
+            message: None,
+            data: Some("test".to_string()),
+        };
+        
+        let serialized = serde_json::to_string(&response).unwrap();
+        let deserialized: ApiResponse<String> = serde_json::from_str(&serialized).unwrap();
+        
+        assert_eq!(deserialized.success, true);
+        assert_eq!(deserialized.data.unwrap(), "test");
+    }
 }

@@ -1,18 +1,14 @@
-// tests/auth_handlers_test.rs
+// tests/auth_handlers.rs
 use actix_web::{test, web, App};
 use chrono::Utc;
 use uuid::Uuid;
 use rust_server::{
-    auth::{handlers::{self, LoginRequest}, jwt::Claims, types::*},  // LoginRequest를 명시적으로 import
-    config::{ServerConfig, AuthConfig},  // AuthConfig 추가
-    db::{models::*, repository::Repository},
-    error::AppError,
+    auth::{handlers::{LoginRequest, login, logout, register}, jwt::Claims, types::*}, 
+    config::{ServerConfig, AuthConfig}, 
+    db::models::*,
 };
 use mockall::predicate::*;
 use mockall::mock;
-
-mod common;
-use common::{create_test_user, create_test_config};
 
 // Repository 모의 객체 생성
 mock! {

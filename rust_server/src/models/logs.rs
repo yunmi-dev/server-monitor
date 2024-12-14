@@ -6,7 +6,7 @@ use sqlx::postgres::PgHasArrayType;
 use sqlx::types::JsonValue;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "log_level")]
 #[sqlx(rename_all = "lowercase")]
 pub enum LogLevel {
@@ -68,7 +68,7 @@ impl PgHasArrayType for LogLevel {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]  
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]  
 pub struct LogMetadata {
     pub context: Option<String>,
     pub details: Option<JsonValue>,
@@ -130,7 +130,7 @@ pub struct CreateLogRequest {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogEntry {
     pub id: String,
     pub level: LogLevel,
@@ -202,6 +202,22 @@ pub struct LogFilter {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
+
+impl Default for LogFilter {
+    fn default() -> Self {
+        Self {
+            levels: None,
+            from: None,
+            to: None,
+            server_id: None,
+            component: None,
+            search: None,
+            limit: None,
+            offset: None,
+        }
+    }
+}
+
 
 impl LogFilter {
     pub fn new() -> Self {
