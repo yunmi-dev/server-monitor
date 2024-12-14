@@ -85,6 +85,9 @@ dependencies:
   
   flutter_keyboard_visibility: ^5.4.1
 
+  # 모킹
+  mocktail: ^1.0.0
+
 
 dev_dependencies:
   flutter_test:

@@ -8,6 +8,11 @@ use sysinfo::{System, SystemExt, ProcessExt, CpuExt, DiskExt, NetworkExt, Networ
 use crate::db::models::MetricsSnapshot;
 
 pub mod collector;
+mod traits;
+pub use traits::MonitoringServiceTrait;
+
+#[cfg(test)]
+pub use traits::MockMonitoringServiceTrait;
 
 #[derive(Clone)]
 pub struct MetricsCollector {

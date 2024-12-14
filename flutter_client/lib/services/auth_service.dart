@@ -13,24 +13,6 @@ import 'package:flutter_client/services/api_service.dart';
 import 'package:flutter_client/services/storage_service.dart';
 import 'package:flutter_client/utils/logger.dart';
 import 'package:flutter_client/models/auth_result.dart' as models;
-import 'package:freezed_annotation/freezed_annotation.dart';
-
-part 'auth_service.freezed.dart';
-part 'auth_service.g.dart';
-
-@freezed
-class AuthResult with _$AuthResult {
-  const factory AuthResult({
-    required String accessToken,
-    required String refreshToken,
-    required User user,
-  }) = _AuthResult;
-
-  factory AuthResult.fromJson(Map<String, dynamic> json) =>
-      _$AuthResultFromJson(json);
-}
-
-enum AuthProvider { email, google, apple, kakao, facebook }
 
 class AuthException implements Exception {
   final String message;

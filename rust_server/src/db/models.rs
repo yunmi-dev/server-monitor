@@ -205,7 +205,7 @@ impl_common_traits!(AuthProvider, {
     Facebook => "facebook"
 });
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]
 pub struct User {
     pub id: String,
     pub email: String,

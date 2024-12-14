@@ -12,6 +12,12 @@ pub struct ServerConfig {
     pub encryption: EncryptionConfig,
 }
 
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self::with_defaults()
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct EncryptionConfig {
     pub key: String,      // 32바이트 암호화 키 (base64 인코딩)
@@ -34,11 +40,32 @@ pub struct HttpServerConfig {
     pub cors_origins: Vec<String>,
 }
 
+impl Default for HttpServerConfig {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+            cors_origins: vec!["http://localhost:3000".to_string()],
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct DatabaseConfig {
     pub url: String,
     pub max_connections: u32,
     pub timeout_seconds: u64,
+}
+
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            url: "postgres://localhost/myapp".to_string(),
+            max_connections: 5,
+            timeout_seconds: 30,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -56,6 +83,17 @@ pub struct MonitoringConfig {
     pub alert_thresholds: AlertThresholds,
 }
 
+
+impl Default for MonitoringConfig {
+    fn default() -> Self {
+        Self {
+            metrics_interval_seconds: 60,
+            retention_days: 30,
+            alert_thresholds: AlertThresholds::default(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct AlertThresholds {
     pub cpu_warning: f32,
@@ -64,6 +102,20 @@ pub struct AlertThresholds {
     pub memory_critical: f32,
     pub disk_warning: f32,
     pub disk_critical: f32,
+}
+
+
+impl Default for AlertThresholds {
+    fn default() -> Self {
+        Self {
+            cpu_warning: 80.0,
+            cpu_critical: 90.0,
+            memory_warning: 80.0,
+            memory_critical: 90.0,
+            disk_warning: 80.0,
+            disk_critical: 90.0,
+        }
+    }
 }
 
 impl Default for AuthConfig {

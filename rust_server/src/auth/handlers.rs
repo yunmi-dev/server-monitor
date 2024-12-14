@@ -4,7 +4,7 @@ use chrono::Utc;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use reqwest::Client;
 use uuid::Uuid;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use crate::auth::utils::verify_password;
 use crate::auth::types::{AuthResponse, RegisterRequest, SocialLoginRequest, UserResponse};
 use crate::auth::jwt::Claims;
@@ -15,7 +15,7 @@ use crate::db::repository::Repository;
 use crate::error::AppError;
 use serde_json::json;
 
-#[derive(Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,

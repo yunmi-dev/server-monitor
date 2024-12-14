@@ -77,3 +77,7 @@ utoipa = { version = "4.1", features = ["actix_extras"] }
 utoipa-swagger-ui = { version = "5.0", features = ["actix-web"] }
 
 config = "0.13"
+
+# 테스트 코드
+mockall = "0.11"
+actix-rt = "2.9" 
