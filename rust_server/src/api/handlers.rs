@@ -1,8 +1,5 @@
-// server/src/api/handlers.rs
-
 use actix_web::{web, HttpResponse, Result};
 use crate::monitoring::MonitoringService;
-//use crate::models::metrics::ServerMetrics;
 use crate::error::AppError;
 use crate::api::response::ApiResponse;
 
